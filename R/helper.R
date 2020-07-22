@@ -29,3 +29,62 @@ safeSetupRegistry = function(registry_name, overwrite, packages, def) {
   }
   return(reg)
 }
+
+
+getGroundTruth = function(res, prob) {
+  newdata = res[problem == prob & algorithm == "randomsearch", ]$result[[1]]
+  newdata = newdata$res$opt.path$env$path
+  return(newdata)
+}
+
+getPredictions = function(res, prob, newdata) {
+  preds = lapply(models, function(x) {
+    preds = predict(x, newdata = newdata)
+    preds
+  })
+  return(preds)
+}
+
+getModels = function(res, prob) {
+    ressub = res[problem == prob & algorithm == "mlrmbo", ]
+
+    models = lapply(seq_len(nrow(ressub)), function(x) {
+    modls = ressub[x, ]$result[[1]]$res$models
+    if (length(modls) > 0)
+      modls[[length(modls)]]
+    else 
+      NULL
+  })
+    return(models)
+}
+
+getTrainData = function(res, prob) {
+    ressub = res[problem == prob & algorithm == "mlrmbo", ]
+
+    dfs = lapply(seq_len(nrow(ressub)), function(x) {
+      ressub$result[[1]]$res$opt.path$env$path
+    })
+    return(dfs)
+}
+
+
+
+getPerformance = function(res, prob) {
+  ressub = res[problem == prob & algorithm == "mlrmbo", ]
+
+  models = lapply(seq_len(nrow(ressub)), function(x) {
+    modls = ressub[x, ]$result[[1]]$res$models
+    if (length(modls) > 0)
+      modls[[length(modls)]]
+    else 
+      NULL
+  })
+
+  newdata = getGroundTruth(res, prob)
+
+  preds = getPredictions(res, prob, newdata)
+  perfs = lapply(preds, performance)
+
+  data.frame(job.id = ressub$job.id, mse = unlist(perfs))
+}
+
