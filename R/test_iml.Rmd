@@ -1,0 +1,181 @@
+---
+title: "xAutoML Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+```
+
+```{r, echo = FALSE, eval = FALSE}
+# get data and model
+source("R/data_prep.r")
+
+# choose data set and lambda
+data = data_btss
+lambda = 1
+
+object = get_objects(data_btss, 0.5)
+model = object$model[[1]]
+mbo_train = object$data_train
+lhs_test = object$data_test
+save(model, mbo_train, lhs_test, file = "data.RData")
+```
+
+```{r, echo = FALSE}
+library(iml)
+library(mlrMBO)
+library(data.table)
+library(ggplot2)
+library(viridis)
+library(patchwork)
+load("../data/data.RData")
+```
+
+# Search-Space Correlation
+
+```{r, fig.width=12, fig.height=6}
+library(corrplot)
+par(mfrow = c(1,2))
+# correlation between features for mbo vs. lhs
+corrplot(cor(mbo_train), method = "color", type = "upper", order = "FPC", 
+  addCoef.col = "black", tl.col = "black", diag = FALSE)
+title(main = "MBO (train set)")
+
+corrplot(cor(lhs_test), method = "color", type = "upper", order = "FPC", 
+  addCoef.col = "black", tl.col = "black", diag = FALSE)
+title(main = "randomLHS (test set)")
+# some features have a recognizable correlation (around 0.3) in mbo
+# for the random lhs design all features are uncorrelated. 
+```
+
+```{r, echo = FALSE, eval = FALSE}
+ggplot(data = mbo_train, aes(x = colsample_bylevel, y = colsample_bytree, col = y)) + 
+  geom_point() + scale_color_viridis()
+ggplot(data = lhs_test, aes(x = colsample_bylevel, y = colsample_bytree, col = y)) + 
+  geom_point() + scale_color_viridis()
+```
+
+# Analyze GP of MBO
+
+## Tree Surrogate
+```{r}
+pred = Predictor$new(model = model, data = mbo_train)
+dt = TreeSurrogate$new(pred, maxdepth = 5, tree.args = list(mincriterion = 0.9))
+plot(dt)
+```
+
+# 1D Feature Effects
+
+- gray curves: ICE curves show the expected change of y when the feature changes (always refer to a specific instance)
+- gray point: refers to the observed feature value of the specific instance
+- yellow curve: PDP is the global "effect" showing how y is on average affected by the feature
+
+```{r, echo = FALSE, fig.width=12, fig.height=6}
+pred = Predictor$new(model = model, data = mbo_train)
+
+# ale
+effects.ale = FeatureEffect$new(predictor = pred, feature = "eta", method = "ale")
+# pdp
+effects.pdp = FeatureEffect$new(predictor = pred, feature = "eta", method = "pdp")
+# ice
+effects = FeatureEffect$new(predictor = pred, feature = "eta", method = "pdp+ice")
+
+# get observed feature value for each ice curve
+# edata = as.data.table(na.omit(effects$results))
+# edata[, d := abs(eta - mbo_train$eta[.id])]
+# edata = as.data.frame(edata[, list("eta" = eta[which.min(d)], "y" = .value[which.min(d)]), by = ".id"])
+
+# this is buggy?
+edata = na.omit(data.table(
+  id = effects$results$.id,
+  eta = mbo_train$eta[effects$results$.id],
+  eta.diff = abs(effects$results$eta - mbo_train$eta[effects$results$.id]),
+  y = effects$results$.value))
+edata = edata[, list("eta" = eta[which.min(eta.diff)],
+  "y" = y[which.min(eta.diff)]), by = "id"]
+
+ale = effects.ale$plot() + ggtitle("ALE plot") 
+pdp = effects.pdp$plot() + ggtitle("PD plot") 
+ice = effects$plot() + 
+  ggtitle("ICE curves + PD plot") + 
+  geom_point(data = edata, aes(x = eta, y = y), alpha = 0.5, shape = 4) #, col = nrounds)) + scale_color_viridis()
+pdp + ice
+```
+
+```{r, echo = FALSE, fig.width=12, fig.height=6}
+# centered ice + pdp - shows interactions
+effects.center = FeatureEffect$new(predictor = pred, feature = "eta", method = "pdp+ice", center.at = 0)
+
+edata = na.omit(data.table(
+  id = effects.center$results$.id, 
+  eta = mbo_train$eta[effects.center$results$.id], 
+  eta.diff = abs(effects.center$results$eta - mbo_train$eta[effects.center$results$.id]), 
+  y = effects.center$results$.value))
+edata = edata[, list("eta" = eta[which.min(eta.diff)], "y" = y[which.min(eta.diff)]), by = "id"]
+
+effects.center$plot() + 
+  ggtitle("Centered ICE curves + PD plot") + 
+  geom_point(data = edata, aes(x = eta, y = y), alpha = 0.5, shape = 4) 
+```
+
+# 2D Interactions
+```{r, echo = TRUE, fig.width=12, fig.height=6, cache = TRUE}
+plot(Interaction$new(pred)) + ggtitle("H-statistics")
+plot(Interaction$new(pred, feature = c("subsample"))) + ggtitle("subsample: H-statistics")
+
+feats = c("subsample", "colsample_bylevel")
+# 2 dim ale
+ale2d = FeatureEffect$new(predictor = pred, feature = feats, 
+  method = "ale", grid.size = 50)
+# 2 dim pdp
+pdp2d = FeatureEffect$new(predictor = pred, feature = feats, 
+  method = "pdp", grid.size = 50)
+ale2d$plot() + scale_fill_viridis() + pdp2d$plot() + scale_fill_viridis()
+
+
+feats = c("eta", "nrounds")
+# 2 dim ale
+ale2d = FeatureEffect$new(predictor = pred, feature = feats, 
+  method = "ale", grid.size = 50)
+# 2 dim pdp
+pdp2d = FeatureEffect$new(predictor = pred, feature = feats, 
+  method = "pdp", grid.size = 50)
+ale2d$plot() + scale_fill_viridis() + pdp2d$plot() + scale_fill_viridis()
+```
+
+# Feature Importance
+
+We use random LHS data points as "test set" for the permutation feature importance:
+
+```{r, echo = TRUE, fig.width=12, fig.height=6, cache = TRUE}
+# Permutation Feature importance
+pred.test = Predictor$new(model = model, data = lhs_test, y = "y")
+pfi = FeatureImp$new(predictor = pred.test, loss = "rmse")
+pfi$plot()
+```
+
+# LIME
+
+best vs. worst iteration:
+```{r, fig.width=12, fig.height=6}
+best.ind = which.min(mbo_train$y)
+worst.ind = which.max(mbo_train$y)
+lime.best = LocalModel$new(pred, x.interest = round(mbo_train[best.ind,], 3), k = 5)
+lime.worst = LocalModel$new(pred, x.interest = round(mbo_train[worst.ind, ], 3), k = 5)
+mbo_train[c(best.ind, worst.ind),]
+plot(lime.best) + plot(lime.worst)
+```
+
+
+# Shapley
+
+best vs. worst iteration:
+```{r, fig.width=12, fig.height=6}
+shap.best = Shapley$new(pred, x.interest = round(mbo_train[best.ind,], 3))
+shap.worst = Shapley$new(pred, x.interest = round(mbo_train[worst.ind, ], 3))
+plot(shap.best) + plot(shap.worst)
+```
+
+
+
