@@ -36,8 +36,6 @@ packages = c(
 lapply(packages, library, character.only = TRUE)
 
 
-
-
 # --- 1. PROBLEM DESIGN ---
 
 TASK_LOCATION = "data/raw/"
@@ -97,7 +95,7 @@ mlrmbo = function(data, job, instance,
 	)
 
 	ctrl = makeMBOControl(store.model.at = 1:200)
-	ctrl = setMBOControlTermination(ctrl, max.evals = 20)
+	ctrl = setMBOControlTermination(ctrl, max.evals = 200)
 	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
 	des = generateDesign(n = 2 * length(ps$pars), par.set = ps, fun = lhs::randomLHS)
