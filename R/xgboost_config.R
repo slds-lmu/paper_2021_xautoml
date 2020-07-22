@@ -97,7 +97,7 @@ mlrmbo = function(data, job, instance,
 	)
 
 	ctrl = makeMBOControl(store.model.at = 1:200)
-	ctrl = setMBOControlTermination(ctrl, max.evals = 200)
+	ctrl = setMBOControlTermination(ctrl, max.evals = 20)
 	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
 	des = generateDesign(n = 2 * length(ps$pars), par.set = ps, fun = lhs::randomLHS)
@@ -150,7 +150,7 @@ randomsearch = function(data, job, instance
 
 ALGORITHMS = list(
     mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 2))),
-    randomsearch = list(fun = randomsearch)
+    randomsearch = list(fun = randomsearch, ades = data.table())
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)

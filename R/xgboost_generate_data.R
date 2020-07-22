@@ -42,7 +42,7 @@ resources.serial = list(
 
 reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
-	by = c("job.id", "algorithm", "lrn", "problem"))
+	by = c("job.id", "algorithm", "lrn", "problem", "lambda"))
 
 
 # filter for problems we are interested in NOW 
