@@ -33,7 +33,7 @@ safeSetupRegistry = function(registry_name, overwrite, packages, def) {
 
 getGroundTruth = function(res, prob) {
   newdata = res[problem == prob & algorithm == "randomsearch", ]$result[[1]]
-  newdata = newdata$res$opt.path$env$path
+  newdata = newdata[[2]]$env$path
   return(newdata)
 }
 
@@ -49,7 +49,7 @@ getModels = function(res, prob) {
     ressub = res[problem == prob & algorithm == "mlrmbo", ]
 
     models = lapply(seq_len(nrow(ressub)), function(x) {
-    modls = ressub[x, ]$result[[1]]$res$models
+    modls = ressub[x, ]$result[[1]]$models
     if (length(modls) > 0)
       modls[[length(modls)]]
     else 
@@ -62,8 +62,9 @@ getTrainData = function(res, prob) {
     ressub = res[problem == prob & algorithm == "mlrmbo", ]
 
     dfs = lapply(seq_len(nrow(ressub)), function(x) {
-      ressub$result[[1]]$res$opt.path$env$path
+      ressub[x, ]$result[[1]][[2]]$env$path
     })
+
     return(dfs)
 }
 
@@ -73,7 +74,7 @@ getPerformance = function(res, prob) {
   ressub = res[problem == prob & algorithm == "mlrmbo", ]
 
   models = lapply(seq_len(nrow(ressub)), function(x) {
-    modls = ressub[x, ]$result[[1]]$res$models
+    modls = ressub[x, ]$result[[1]]$models
     if (length(modls) > 0)
       modls[[length(modls)]]
     else 
@@ -88,3 +89,26 @@ getPerformance = function(res, prob) {
   data.frame(job.id = ressub$job.id, mse = unlist(perfs))
 }
 
+plotPDPoverReplications = function(modellist, train_data_list, feature) {
+    effectlist = lapply(seq_len(length(modellist)), function(i) {
+      pred = Predictor$new(model = modellist[[i]], data = train_data_list[[i]])
+      effects = FeatureEffect$new(predictor = pred, feature = feature, method = "pdp") 
+      effects$plot() 
+    })
+    
+    # Quick workaround for buidling the overlay
+    pg = ggplot_build(effectlist[[1]])
+    p1 = effectlist[[1]]    
+
+    p = ggplot() + theme_bw()
+    xlabel = effectlist[[1]]$labels$x
+    ylabel = effectlist[[1]]$labels$y
+
+    for (i in 1:length(effectlist)) {
+      pg = ggplot_build(effectlist[[i]])
+      p = p + geom_line(data = pg$data[[1]], aes(x = x, y = y), alpha = 0.2) 
+      # p = p + ylim(pg$layout$panel_scales_y[[1]]$limits)
+      p = p + xlab(xlabel) + ylab(ylabel) 
+    }
+    return(list(effectlist, p))
+}

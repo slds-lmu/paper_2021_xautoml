@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "REAL"
+SETUP = "TEST"
 
 switch(SETUP, 
 	"TEST" = {
@@ -51,15 +51,15 @@ PROBLEMS = list(
 			eval_metric = "error", 
 			objective = "binary:logistic"),
     	ps = makeParamSet(
-			# do early stopping instead for the biggere datasets
-		  	makeIntegerParam("nrounds", lower = 1L, upper = 2000L),	
-		  	makeNumericParam("eta", lower = 0.01, upper = 0.2),
-		  	makeNumericParam("gamma", lower = -7, upper = 6),#, trafo = function(x) 2^x),
+			# do early stopping instead for the bigger datasets
+		  	makeNumericParam("nrounds", lower = 0, upper = 13, trafo = function(x) round(2^x)), # 2^13 = 8192	
+		  	makeNumericParam("eta", lower = -7, upper = 0, trafo = function(x) 2^x), # 2^(-7) = 0.007 < 0.01
+		  	makeNumericParam("gamma", lower = -7, upper = 6, trafo = function(x) 2^x), 
 		  	makeIntegerParam("max_depth", lower = 3, upper = 20),
 		  	makeNumericParam("colsample_bytree", lower = 0.5, upper = 1),
 		  	makeNumericParam("colsample_bylevel", lower = 0.5, upper = 1),
-		  	makeNumericParam("lambda", lower = -10, upper = 10), #, trafo = function(x) 2^x),
-		  	makeNumericParam("alpha", lower = -10, upper = 10), # trafo = function(x) 2^x),
+		  	makeNumericParam("lambda", lower = -10, upper = 10, trafo = function(x) 2^x),
+		  	makeNumericParam("alpha", lower = -10, upper = 10, trafo = function(x) 2^x),
 		  	makeNumericParam("subsample", lower = 0.5, upper = 1)
 		)
 	)
@@ -152,5 +152,4 @@ ALGORITHMS = list(
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)
-
 
