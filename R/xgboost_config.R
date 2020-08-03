@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "TEST"
+SETUP = "REAL"
 
 switch(SETUP, 
 	"TEST" = {
@@ -45,14 +45,9 @@ tasks = tasks[2:length(tasks)]
 
 PROBLEMS = list(
     xgboost = list(
-    	learner = makeLearner(
-			"classif.xgboost", 
-			id = "classif.xgboost", 
-			eval_metric = "error", 
-			objective = "binary:logistic"),
     	ps = makeParamSet(
 			# do early stopping instead for the bigger datasets
-		  	makeNumericParam("nrounds", lower = 0, upper = 13, trafo = function(x) round(2^x)), # 2^13 = 8192	
+		  	makeNumericParam("nrounds", lower = 0, upper = 12, trafo = function(x) round(2^x)), # 2^13 = 8192	
 		  	makeNumericParam("eta", lower = -7, upper = 0, trafo = function(x) 2^x), # 2^(-7) = 0.007 < 0.01
 		  	makeNumericParam("gamma", lower = -7, upper = 6, trafo = function(x) 2^x), 
 		  	makeIntegerParam("max_depth", lower = 3, upper = 20),
@@ -84,9 +79,14 @@ mlrmbo = function(data, job, instance,
 
 	obj = makeSingleObjectiveFunction(name = "xgb.tuning",
 	  fn = function(x) {
-		lrn = instance$learner 
+		lrn = makeLearner(
+			"classif.xgboost", 
+			id = "classif.xgboost", 
+			eval_metric = "error", 
+			objective = "binary:logistic", 
+			par.vals = x)		
 		task = instance$task
-	    resample(lrn, task, cv10, show.info = FALSE)$aggr
+	    resample(lrn, task, cv3, show.info = FALSE)$aggr
 	  },
 	  par.set = ps,
 	  noisy = TRUE,
@@ -121,7 +121,12 @@ randomsearch = function(data, job, instance
 
 	obj = makeSingleObjectiveFunction(name = "xgb.tuning",
 	  fn = function(x) {
-		lrn = instance$learner 
+		lrn = makeLearner(
+			"classif.xgboost", 
+			id = "classif.xgboost", 
+			eval_metric = "error", 
+			objective = "binary:logistic", 
+			par.vals = x)		
 		task = instance$task
 	    resample(lrn, task, cv10, show.info = FALSE)$aggr
 	  },

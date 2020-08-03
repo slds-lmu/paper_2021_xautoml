@@ -49,9 +49,9 @@ tab = summarizeExperiments(
 probs = c("blood-transfusion-service-center", "kc1")
 tosubmit = tab[algorithm == "mlrmbo", ]
 tosubmit = tosubmit[problem %in% probs, ]
-tosubmit = ijoin(tosubmit, findNotDone())
+# tosubmit = ijoin(tosubmit, findNotDone())
 
-tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 3L)
+tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10L)
 
 submitJobs(tosubmit, resources = resources.serial)
 
