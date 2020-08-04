@@ -18,7 +18,7 @@ switch(SETUP,
 		# overwrite registry?
 		OVERWRITE = FALSE
 		# termination criterion for each run
-		RUNTIME_MAX = 259200L
+		RUNTIME_MAX = 302400
     # registry name for storing files on drive     
 		registry_name = "xgboost_registry"
 	}
@@ -95,7 +95,7 @@ mlrmbo = function(data, job, instance,
 	)
 
 	ctrl = makeMBOControl(store.model.at = 1:200)
-	ctrl = setMBOControlTermination(ctrl, max.evals = 200)
+	ctrl = setMBOControlTermination(ctrl, max.evals = 200, time.budget = RUNTIME_MAX)
 	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
 	des = generateDesign(n = 2 * length(ps$pars), par.set = ps, fun = lhs::randomLHS)
@@ -128,7 +128,7 @@ randomsearch = function(data, job, instance
 			objective = "binary:logistic", 
 			par.vals = x)		
 		task = instance$task
-	    resample(lrn, task, cv10, show.info = FALSE)$aggr
+	    resample(lrn, task, cv3, show.info = FALSE)$aggr
 	  },
 	  par.set = ps,
 	  noisy = TRUE,
