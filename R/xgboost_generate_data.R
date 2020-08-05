@@ -36,9 +36,10 @@ addExperiments(
 # --- 3. SUBMIT ON LRZ ---
 
 resources.serial = list(
-	walltime = 3600L * 96L, memory = 1024L * 4L,
+	walltime = 3600L * 24L * 4L, memory = 1024L * 2L,
 	clusters = "serial", max.concurrent.jobs = 1000L # get name from lrz homepage)
 )
+
 
 reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
@@ -46,9 +47,13 @@ tab = summarizeExperiments(
 
 
 # filter for problems we are interested in NOW 
+probs = list.dirs("data/raw", full.names = FALSE)
+probs = probs[- which(probs %in% c("blood-transfusion-service-center", "kc1", ""))]
 probs = c("blood-transfusion-service-center", "kc1")
+
 tosubmit = tab[algorithm == "mlrmbo", ]
 tosubmit = tosubmit[problem %in% probs, ]
+tosubmit = tosubmit[, .SD[which.min(job.id)], by = c("problem")]
 # tosubmit = ijoin(tosubmit, findNotDone())
 
 tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10L)
