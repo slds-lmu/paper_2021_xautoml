@@ -47,13 +47,14 @@ tab = summarizeExperiments(
 
 
 # filter for problems we are interested in NOW 
-probs = list.dirs("data/raw", full.names = FALSE)
-probs = probs[- which(probs %in% c("blood-transfusion-service-center", "kc1", ""))]
-probs = c("blood-transfusion-service-center", "kc1")
+# probs = list.dirs("data/raw", full.names = FALSE)
+# probs = probs[- which(probs %in% c("blood-transfusion-service-center", "kc1", ""))]
+
+probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "sylvine")
 
 tosubmit = tab[algorithm == "mlrmbo", ]
 tosubmit = tosubmit[problem %in% probs, ]
-tosubmit = tosubmit[, .SD[which.min(job.id)], by = c("problem")]
+# tosubmit = tosubmit[, .SD[which.min(job.id)], by = c("problem")]
 # tosubmit = ijoin(tosubmit, findNotDone())
 
 tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10L)

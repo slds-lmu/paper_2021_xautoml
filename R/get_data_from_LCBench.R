@@ -7,7 +7,6 @@ task = "blood-transfusion-service-center"
 
 # Fit a ranger random forest 
 lrn = makeLearner("regr.ranger")
-lrn$splitrule =
 
 data = read.csv2(file.path(path, task, "lcbench2000.csv"), sep = ",")
 
