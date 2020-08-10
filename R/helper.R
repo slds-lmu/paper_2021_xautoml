@@ -114,9 +114,11 @@ plotPDPoverReplications = function(modellist, train_data_list, feature) {
 }
 
 
-perform_random_search = function(search_space_ids, ps_surrogate, objective, max_evals, resampling) {
+perform_random_search = function(df, search_space_ids, ps_surrogate, objective, max_evals, resampling) {
 
-  task_data = data[, c(search_space_ids, objective)]
+  print(objective)
+
+  task_data = df[, c(search_space_ids, objective)]
 
   # I think this is an error in the data 
   task_data$num_layers = ifelse(task_data$num_layers == "True", 5, task_data$num_layers)

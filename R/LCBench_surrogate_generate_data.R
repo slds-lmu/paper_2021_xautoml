@@ -44,7 +44,7 @@ reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem"))
 
-submitJobs(tab, resources = resources.serial)
+submitJobs(tab[1, ], resources = resources.serial)
 
 res = reduceResultsDataTable(findDone())
 res = ijoin(tab, res)

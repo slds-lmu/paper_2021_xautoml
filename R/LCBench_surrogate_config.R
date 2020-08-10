@@ -52,7 +52,7 @@ randomsearch = function(data, job, instance
 	lrn = makeLearner("regr.ranger")
 
 	# read LCBench data 
-	data = read.csv2(instance, sep = ",")
+	df = read.csv2(instance, sep = ",")
 
 	search_space_ids = c("batch_size", "max_dropout", "max_units", "num_layers", "learning_rate", 
 		"momentum", "weight_decay")
@@ -68,10 +68,10 @@ randomsearch = function(data, job, instance
 	obj = c("final_val_balanced_accuracy", "final_test_balanced_accuracy")
 
 	
-	opdf_val = perform_random_search(search_space_ids = search_space_ids, 
+	opdf_val = perform_random_search(df = df, search_space_ids = search_space_ids, 
 		ps_surrogate = ps_surrogate, objective = obj[1], max_evals = 500, resampling = hout)
 	
-	opdf_test = perform_random_search(search_space_ids = search_space_ids, 
+	opdf_test = perform_random_search(df = df, search_space_ids = search_space_ids, 
 		ps_surrogate = ps_surrogate, objective = obj[2], max_evals = 500, resampling = hout)
 
 
