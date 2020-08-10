@@ -112,3 +112,65 @@ plotPDPoverReplications = function(modellist, train_data_list, feature) {
     }
     return(list(effectlist, p))
 }
+
+
+perform_random_search = function(search_space_ids, ps_surrogate, objective, max_evals, resampling) {
+
+  task_data = data[, c(search_space_ids, objectives)]
+
+  # I think this is an error in the data 
+  task_data$num_layers = ifelse(task_data$num_layers == "True", 5, task_data$num_layers)
+
+  task_data = as.data.table(task_data)
+  task_data = sapply(task_data, function(x) as.numeric(as.character(x)))
+  task_data = as.data.table(task_data)
+
+  task = makeRegrTask(data = task_data, target = objective)
+
+  obj = makeSingleObjectiveFunction(name = "ranger.surrogate", fn = function(x) {   
+      if (!x$do.mtry) 
+        x$mtry = getTaskNFeats(task)
+
+      x$do.mtry = NULL
+      x$splitrule = "extratrees"
+
+    lrn = makeLearner("regr.ranger", par.vals = x)
+      resample(lrn, task, resampling, show.info = FALSE)$aggr
+    },
+    par.set = ps_surrogate,
+    noisy = TRUE,
+    has.simple.signature = FALSE,
+    minimize = FALSE
+  )
+
+  des = generateRandomDesign(n = max_evals, par.set = ps_surrogate)
+  # des = rbind(des, data.frame(num.trees = log(10, 2), do.mtry = FALSE, min.node.size = 1, num.random.splits = getTaskNFeats(task_val)))
+
+  ctrl = makeMBOControl()
+  ctrl = setMBOControlTermination(ctrl, max.evals = max_evals - 1)
+
+  res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
+
+  # compute surrogate on the whole data with the best configuration
+  opdf = as.data.table(as.data.frame(res$opt.path))
+  opdf$final.model.avail = FALSE
+  opdf$model = list()
+
+  idx = which.min(opdf$y)
+  opdf[idx, ]$final.model.avail = TRUE
+
+  config = des[idx, ]
+  config = as.list(config)
+  config.trafo = trafoValue(ps_surrogate, config)
+  config.trafo$do.mtry = NULL
+  lrn = makeLearner("regr.ranger", par.vals = list(splitrule = "extratrees"))
+  lrn.tuned = setHyperPars2(lrn, config.trafo)
+
+  mod.tuned = train(lrn.tuned, task)
+
+  opdf[idx, ]$model[[1]] = mod.tuned
+
+  return(opdf)
+}
+
+

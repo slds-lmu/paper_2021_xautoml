@@ -64,6 +64,30 @@ submitJobs(tosubmit, resources = resources.serial)
 tosubmit = tab[algorithm == "randomsearch", ]
 tosubmit = tosubmit[problem %in% probs, ]
 tosubmit = tosubmit[ ,.SD[which.min(job.id)], by = problem]
+tosubmit = ijoin(tosubmit, findNotDone())
 
 submitJobs(tosubmit, resources = resources.serial)
 
+
+for (prob in probs) {
+
+  toreduce = tab[problem %in% prob, ]
+  toreduce = ijoin(toreduce, findDone())
+
+  res = reduceResultsDataTable(toreduce, function(x) {
+    models = x$res$models
+    x$res$models = models[length(models)]
+    x$res$final.opt.state$opt.result$stored.models = models[length(models)]
+    x$res$final.opt.state$opt.problem$fun = NULL
+    # x$res$final.opt.state$opt.result$mbo.result$final.opt.state$opt.problem$fun = NULL
+    x
+  })
+
+  res = ijoin(tab, res)
+
+  if (!dir.exists(file.path("data/runs/xgboost/", prob))) {
+    dir.create(file.path("data/runs/xgboost/", prob))
+  }
+
+  saveRDS(res, file.path("data/runs/xgboost", prob, "mlrmbo_30_repls.rds"))
+}

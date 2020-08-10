@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "TEST"
+SETUP = "REAL"
 
 switch(SETUP, 
 	"TEST" = {
@@ -51,77 +51,31 @@ randomsearch = function(data, job, instance
 
 	lrn = makeLearner("regr.ranger")
 
+	# read LCBench data 
 	data = read.csv2(instance, sep = ",")
 
-	search_space = c("batch_size", "max_dropout", "max_units", "num_layers", "learning_rate", 
+	search_space_ids = c("batch_size", "max_dropout", "max_units", "num_layers", "learning_rate", 
 		"momentum", "weight_decay")
-	objective = "final_val_accuracy"
 
-	task_data = data[, c(search_space, objective)]
-	task_data$num_layers = ifelse(task_data$num_layers == "True", 5, task_data$num_layers)
-
-	task_data = as.data.table(task_data)
-	task_data = sapply(task_data, function(x) as.numeric(as.character(x)))
-	task_data = as.data.table(task_data)
-	task = makeRegrTask(data = task_data, target = objective)
-
-	ps = makeParamSet(
-			makeNumericParam("num.trees", lower = 0, upper = log(1000, 2), trafo = function(x) round(2^x)), # 2^13 = 8192	
+	ps_surrogate = makeParamSet(
+			makeNumericParam("num.trees", lower = log(10, 2), upper = log(500, 2), trafo = function(x) round(2^x)), # 2^13 = 8192	
 			makeLogicalParam("do.mtry"),
 			makeIntegerParam("min.node.size", lower = 1L, upper = 5L),
 			makeIntegerParam("num.random.splits", lower = 1, upper = 100)
 		)
 
-	obj = makeSingleObjectiveFunction(name = "ranger.surrogate",
-	  fn = function(x) {		
-	  	if (!x$do.mtry) 
-	  		x$mtry = getTaskNFeats(task)
+	# Build two models: one for validation accuracy, on for test accuracy 
+	objectives = c("final_val_balanced_accuracy", "final_test_balanced_accuracy")
 
-	  	x$do.mtry = NULL
-	  	x$splitrule = "extratrees"
+	
+	opdf_val = perform_random_search(search_space_ids = search_space_ids, 
+		ps_surrogate = ps_surrogate, objective = objectives[1], max_evals = 500, resampling = hout)
+	
+	opdf_test = perform_random_search(search_space_ids = search_space_ids, 
+		ps_surrogate = ps_surrogate, objective = objectives[2], max_evals = 500, resampling = hout)
 
-		lrn = makeLearner("regr.ranger", par.vals = x)
-	    resample(lrn, task, cv10, show.info = FALSE)$aggr
-	  },
-	  par.set = ps,
-	  noisy = TRUE,
-	  has.simple.signature = FALSE,
-	  minimize = TRUE
-	)
 
-	des = generateRandomDesign(n = 1000, par.set = ps)
-
-	# always add Marius proposal
-	des = rbind(des, data.frame(num.trees = log(10, 2), do.mtry = FALSE, min.node.size = 1, num.random.splits = 10))
-
-	ctrl = makeMBOControl()
-	ctrl = setMBOControlTermination(ctrl, max.evals = 999)
-
-	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
-
-	# train a model for the best and for the last on the full dataset
-	idx = c(which.min(des$y), 11)
-
-	opdf = as.data.table(as.data.frame(res$opt.path))
-	opdf$final.model.avail = FALSE
-	opdf$model = list()
-	opdf[idx, ]$final.model.avail = TRUE
-
-	for (id in idx) {
-		config = res$opt.path$env$path[id, ]
-		config = config[, - which(names(config) %in% "y")]
-		config = as.list(config)
-		config.trafo = trafoValue(ps, config)
-		config.trafo$do.mtry = NULL
-		lrn = makeLearner("regr.ranger", par.vals = list(splitrule = "extratrees"))
-		lrn.tuned = setHyperPars2(lrn, config.trafo)
-
-		mod.tuned = train(lrn.tuned, task)
-
-		opdf[id, ]$model[[1]] = mod.tuned
-	}
-
-	return(opt.path = opdf)
+	return(list(opdf_val_balanced_accuracy = opdf_val, opdf_test_balanced_accuracy = opdf_test))
 
 }
 
@@ -130,3 +84,5 @@ ALGORITHMS = list(
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)
+
+
