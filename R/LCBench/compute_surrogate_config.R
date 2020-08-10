@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "REAL"
+SETUP = "TEST"
 
 switch(SETUP, 
 	"TEST" = {
@@ -69,10 +69,10 @@ randomsearch = function(data, job, instance
 
 	
 	opdf_val = perform_random_search(df = df, search_space_ids = search_space_ids, 
-		ps_surrogate = ps_surrogate, objective = obj[1], max_evals = 500, resampling = hout)
+		ps_surrogate = ps_surrogate, objective = obj[1], max_evals = 500, resampling = cv3)
 	
 	opdf_test = perform_random_search(df = df, search_space_ids = search_space_ids, 
-		ps_surrogate = ps_surrogate, objective = obj[2], max_evals = 500, resampling = hout)
+		ps_surrogate = ps_surrogate, objective = obj[2], max_evals = 500, resampling = hcv3)
 
 
 	return(list(opdf_val_balanced_accuracy = opdf_val, opdf_test_balanced_accuracy = opdf_test))

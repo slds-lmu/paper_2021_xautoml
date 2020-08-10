@@ -75,11 +75,7 @@ for (prob in probs) {
   toreduce = ijoin(toreduce, findDone())
 
   res = reduceResultsDataTable(toreduce, function(x) {
-    models = x$res$models
-    x$res$models = models[length(models)]
-    x$res$final.opt.state$opt.result$stored.models = models[length(models)]
-    x$res$final.opt.state$opt.problem$fun = NULL
-    # x$res$final.opt.state$opt.result$mbo.result$final.opt.state$opt.problem$fun = NULL
+    x$res$final.opt.state = NULL
     x
   })
 

@@ -116,20 +116,22 @@ plotPDPoverReplications = function(modellist, train_data_list, feature) {
 
 perform_random_search = function(df, search_space_ids, ps_surrogate, objective, max_evals, resampling) {
 
-  print(objective)
-
   task_data = df[, c(search_space_ids, objective)]
 
   # I think this is an error in the data 
   task_data$num_layers = ifelse(task_data$num_layers == "True", 5, task_data$num_layers)
 
-  task_data = as.data.table(task_data)
   task_data = sapply(task_data, function(x) as.numeric(as.character(x)))
   task_data = as.data.table(task_data)
 
+  task_data$num_layers = as.integer(task_data$num_layers)
+  task_data$batch_size = as.integer(task_data$batch_size)
+  task_data$max_units = as.integer(task_data$max_units)
+  task_data$num_layers = as.integer(task_data$num_layers)
+
   task = makeRegrTask(data = task_data, target = objective)
 
-  obj = makeSingleObjectiveFunction(name = "ranger.surrogate", fn = function(x) {   
+  obj_fun = makeSingleObjectiveFunction(name = "ranger.surrogate", fn = function(x) {   
       if (!x$do.mtry) 
         x$mtry = getTaskNFeats(task)
 
@@ -151,7 +153,7 @@ perform_random_search = function(df, search_space_ids, ps_surrogate, objective, 
   ctrl = makeMBOControl()
   ctrl = setMBOControlTermination(ctrl, max.evals = max_evals - 1)
 
-  res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
+  res = mbo(obj_fun, design = des, control = ctrl, show.info = TRUE)
 
   # compute surrogate on the whole data with the best configuration
   opdf = as.data.table(as.data.frame(res$opt.path))
@@ -164,7 +166,12 @@ perform_random_search = function(df, search_space_ids, ps_surrogate, objective, 
   config = des[idx, ]
   config = as.list(config)
   config.trafo = trafoValue(ps_surrogate, config)
+
+  if (!config$do.mtry) 
+    config$mtry = getTaskNFeats(task)
+
   config.trafo$do.mtry = NULL
+
   lrn = makeLearner("regr.ranger", par.vals = list(splitrule = "extratrees"))
   lrn.tuned = setHyperPars2(lrn, config.trafo)
 

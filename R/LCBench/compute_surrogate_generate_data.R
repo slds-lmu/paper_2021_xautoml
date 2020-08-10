@@ -2,14 +2,14 @@
 
 library(batchtools)
 
-source("R/LCBench_surrogate_config.R")
+source("R//LCBench/compute_surrogate_config.R")
 
 lapply(packages, require, character.only = TRUE)
 
 
 # --- 1. SETUP REGISTRY ---
 
-reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/LCBench_surrogate_config.R")
+reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/LCBench/compute_surrogate_config.R")
 
 # --- 2. ADD PROBLEMS, ALGORITHMS, EXPERIMENTS ---
 
@@ -44,7 +44,7 @@ reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem"))
 
-submitJobs(tab[2:35, ], resources = resources.serial)
+submitJobs(tab[1:35, ], resources = resources.serial)
 
 res = reduceResultsDataTable(findDone())
 res = ijoin(tab, res)
