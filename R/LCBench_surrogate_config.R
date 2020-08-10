@@ -65,14 +65,14 @@ randomsearch = function(data, job, instance
 		)
 
 	# Build two models: one for validation accuracy, on for test accuracy 
-	objectives = c("final_val_balanced_accuracy", "final_test_balanced_accuracy")
+	obj = c("final_val_balanced_accuracy", "final_test_balanced_accuracy")
 
 	
 	opdf_val = perform_random_search(search_space_ids = search_space_ids, 
-		ps_surrogate = ps_surrogate, objective = objectives[1], max_evals = 500, resampling = hout)
+		ps_surrogate = ps_surrogate, objective = obj[1], max_evals = 500, resampling = hout)
 	
 	opdf_test = perform_random_search(search_space_ids = search_space_ids, 
-		ps_surrogate = ps_surrogate, objective = objectives[2], max_evals = 500, resampling = hout)
+		ps_surrogate = ps_surrogate, objective = obj[2], max_evals = 500, resampling = hout)
 
 
 	return(list(opdf_val_balanced_accuracy = opdf_val, opdf_test_balanced_accuracy = opdf_test))
