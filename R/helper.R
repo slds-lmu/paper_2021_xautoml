@@ -142,7 +142,7 @@ perform_random_search = function(df, search_space_ids, ps_surrogate, objective, 
     par.set = ps_surrogate,
     noisy = TRUE,
     has.simple.signature = FALSE,
-    minimize = FALSE
+    minimize = TRUE
   )
 
   des = generateRandomDesign(n = max_evals, par.set = ps_surrogate)
