@@ -2,14 +2,14 @@
 
 library(batchtools)
 
-source("R/xgboost_config.R")
+source("R/xgboost/config.R")
 
 lapply(packages, require, character.only = TRUE)
 
 
 # --- 1. SETUP REGISTRY ---
 
-reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/xgboost_config.R")
+reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/xgboost/config.R")
 
 # --- 2. ADD PROBLEMS, ALGORITHMS, EXPERIMENTS ---
 
