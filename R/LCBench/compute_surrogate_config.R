@@ -72,7 +72,7 @@ randomsearch = function(data, job, instance
 		ps_surrogate = ps_surrogate, objective = obj[1], max_evals = 500, resampling = cv3)
 	
 	opdf_test = perform_random_search(df = df, search_space_ids = search_space_ids, 
-		ps_surrogate = ps_surrogate, objective = obj[2], max_evals = 500, resampling = hcv3)
+		ps_surrogate = ps_surrogate, objective = obj[2], max_evals = 500, resampling = cv3)
 
 
 	return(list(opdf_val_balanced_accuracy = opdf_val, opdf_test_balanced_accuracy = opdf_test))

@@ -69,12 +69,14 @@ tosubmit = ijoin(tosubmit, findNotDone())
 submitJobs(tosubmit, resources = resources.serial)
 
 
-for (prob in probs) {
+for (prob in probs[1:4]) {
 
   toreduce = tab[problem %in% prob, ]
   toreduce = ijoin(toreduce, findDone())
 
   res = reduceResultsDataTable(toreduce, function(x) {
+    models = x$res$models
+    x$res$models = models[length(models)]
     x$res$final.opt.state = NULL
     x
   })

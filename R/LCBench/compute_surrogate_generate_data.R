@@ -44,6 +44,8 @@ reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem"))
 
+tosubit$chunk = chunk(tosubmit$job.id, chunk.size = 5L)
+
 submitJobs(tab[1:35, ], resources = resources.serial)
 
 res = reduceResultsDataTable(findDone())
