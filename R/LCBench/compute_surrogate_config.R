@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "TEST"
+SETUP = "REAL"
 
 switch(SETUP, 
 	"TEST" = {
