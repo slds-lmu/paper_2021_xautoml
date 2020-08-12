@@ -44,13 +44,14 @@ reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem"))
 
-tosubit$chunk = chunk(tosubmit$job.id, chunk.size = 5L)
+tosubmit = tab
+tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 5L)
 
-submitJobs(tab[1:35, ], resources = resources.serial)
+submitJobs(tosubmit[chunk == 1, ], resources = resources.serial)
 
 res = reduceResultsDataTable(findDone())
 res = ijoin(tab, res)
-
+  
 for (prob in unique(res$problem)) {
-  saveRDS(res[problem == prob, ], file.path("data/runs/mlp/", prob, "surrogate_ranger.rds"))
+  saveRDS(res[problem == prob, ], file.path("data/runs/mlp/", prob, "surrogate.rds"))
 }

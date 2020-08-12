@@ -53,8 +53,10 @@ mlrmbo = function(data, job, instance, lambda) {
 
 	surrogate_data = readRDS(file.path(instance, "surrogate.rds"))
 	surr_val = surrogate_data$result[[1]]$opdf_val_balanced_accuracy[final.model.avail == TRUE, ]$model[[1]]
-	surr_test = surrogate_data$result[[1]]$opdf_val_balanced_accuracy[final.model.avail == TRUE, ]$model[[1]]
+	surr_test = surrogate_data$result[[1]]$opdf_test_balanced_accuracy[final.model.avail == TRUE, ]$model[[1]]
 
+
+	# I also samples the variables on a log scale that were originally sampled on a log scale
 	ps = makeParamSet(
 			# do early stopping instead for the bigger datasets
 		  	makeNumericParam("batch_size", lower = log(16, 2), upper = log(512, 2), trafo = function(x) round(2^x)), 
@@ -80,17 +82,6 @@ mlrmbo = function(data, job, instance, lambda) {
 	  minimize = TRUE
 	)
 
-	obj_test = makeSingleObjectiveFunction(name = "mlp.surrogate.test",
-	  fn = function(x) {
-		predict(surr_test, newdata = x)$data$response
-	  },
-	  par.set = ps,
-	  noisy = TRUE,
-	  has.simple.signature = FALSE,
-	  minimize = TRUE
-	)
-
-
 	ctrl = makeMBOControl(store.model.at = 1:200)
 	ctrl = setMBOControlTermination(ctrl, max.evals = 200, time.budget = RUNTIME_MAX)
 	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
@@ -100,9 +91,6 @@ mlrmbo = function(data, job, instance, lambda) {
     start_t = Sys.time()
 	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
     end_t = Sys.time()
-
-	y_test = lapply(1:nrow(res$opt.path$env$path), function(i) obj_test(res$opt.path$env$path[i, getParamIds(ps)]))
-	res$opt.path$env$path$y_test = unlist(y_test)
 
     return(list(
       res = res,
