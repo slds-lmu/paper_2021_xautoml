@@ -69,13 +69,21 @@ tosubmit = ijoin(tosubmit, findNotDone())
 submitJobs(tosubmit, resources = resources.serial)
 
 
-for (prob in probs[1:4]) {
+for (prob in probs) {
 
   toreduce = tab[problem %in% prob, ]
   toreduce = ijoin(toreduce, findDone())
 
   res = reduceResultsDataTable(toreduce, function(x) {
+    
+    # for reasons of storage, we just store the model that led to the best observation
+    # and the last model 
     models = x$res$models
+
+    init.size = 
+    
+    idx = c(x$res$best.ind, length())    
+
     x$res$models = models[length(models)]
     x$res$final.opt.state = NULL
     x

@@ -136,10 +136,17 @@ randomsearch = function(data, job, instance
 	  minimize = TRUE
 	)
 
-	des = generateDesign(n = 10000, par.set = ps, fun = lhs::randomLHS)
+	# filter for those that take too long...
+	if (getTaskId(instance$task) %in% c("numerai28.6")) {
+		n = 10^3
+	} else {
+		n = 10^4
+	}
+
+	des = generateDesign(n = n, par.set = ps, fun = lhs::randomLHS)
 
 	ctrl = makeMBOControl()
-	ctrl = setMBOControlTermination(ctrl, max.evals = 9999)
+	ctrl = setMBOControlTermination(ctrl, max.evals = n - 1)
 
     start_t = Sys.time()
 	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
