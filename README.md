@@ -4,7 +4,7 @@
 
 ### (1) Tuning `xgboost` with `mlrMBO`
 
-Tuning `xgboost` on the [AutoML Benchmark Data](https://openml.github.io/automlbenchmark/automl_overview.html). We are using [`mlrMBO`](https://github.com/mlr-org/mlrMBO) to tune an `xgboost` classifier. 
+We use [`mlrMBO`](https://github.com/mlr-org/mlrMBO) to tune an `xgboost` classifier. 
 
 We want to **minimize** the function f: X --> Y with the following specifications: 
 
@@ -31,12 +31,27 @@ ps = makeParamSet(
 
 `mlrMBO` is configured as follows: 
 
-| :---:         |     :---:      |          :---: |
-| Surrogate Model: | Gaussian Process (default) | Matérn3/2-kernel |
-| Infill Criterion | Lower Confidence Bound (LCB) | lambda in {0.5, 1, 2} |
-| Infill Optimization     |  Focus search (default)      |   /    |
-| Proposals per Iteration     |   1     |   /    |
-| Termination Criterion     |   200 Evaluations of f(x)     |   /    |
+|  |  |  |
+| :---         |     :---:      |          ---: |
+| Surrogate Model:         | Gaussian Process (default)        | Matérn3/2-kernel    |
+| Infill Criterion         | Lower Confidence Bound (LCB) | lambda in {0.5, 1, 2}   |
+| Infill Optimization      | Focus search (default)       |   /                     |
+| Proposals per Iteration  |   1                          |   /                     |
+| Termination Criterion    |   200 Evaluations of f(x)    |   /                     |
+
+
+Datasets are taken from [AutoML Benchmark Data](https://openml.github.io/automlbenchmark/automl_overview.html): 
+
+|  |  |  |
+| :---         |     :---:      |          ---: |
+| kc1         | :heavy_check_mark: |     |
+| blood-transfusion-service center         | :heavy_check_mark: |  |
+| numerai28.6      |   :heavy_check_mark:     |   /                     |
+| phoneme  |    :heavy_check_mark:      |   /                     |
+| sylvine    |  :heavy_check_mark:     |   /                     |
+
+
+As "ground-truth", f was evaluated on a randomLHS, to evaluate the bias that arises from analyzing "optimization data" as compared to randomly sampled data. 
 
 
 #### Description of the datasets
