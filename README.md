@@ -43,7 +43,7 @@ As "ground-truth", f was evaluated on a randomLHS with $n = 10000$ samples, to e
 Datasets are taken from [AutoML Benchmark Data](https://openml.github.io/automlbenchmark/automl_overview.html): 
 
 | dataset | done | 
-| :---         |     30 / 30 replication + 1 / 1 randomLHS   |     
+| :---: | :---: |
 | kc1         |     30 / 30 replication + 1 / 1 randomLHS   |     
 | blood-transfusion-service center         |     30 / 30 replication + 1 / 1 randomLHS   |     
 | numerai28.6      |     30 / 30 replication +  0 / 1 randomLHS   |     
@@ -148,3 +148,8 @@ ps = makeParamSet(
 		)
 ```
 This was performed both for the validation performance (what we focus on now), and for the test performance (maybe for future investigations).     
+
+
+### Note: All current investigations are based on the validation performance, i.e. the performance values the optimizer sees. We are not investigating external test data that the optimizer has not seen so far (but we could). 
+
+
