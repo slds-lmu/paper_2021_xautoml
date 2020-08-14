@@ -50,10 +50,56 @@ tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10L)
 
 submitJobs(tosubmit, resources = resources.serial)
 
-res = reduceResultsDataTable(findDone())
-res = ijoin(tab, res)
+probs = unique(tab$problem)
 
-for (prob in unique(res$problem)) {
-  saveRDS(res[problem == prob, ], file.path("data/runs/mlp/", prob, "surrogate_ranger.rds"))
+for (prob in probs) {
+
+  toreduce = tab[problem %in% prob, ]
+  toreduce = ijoin(toreduce, findDone())
+
+  res = reduceResultsDataTable(toreduce, function(x) {
+    
+    # for reasons of storage, we just store the model that led to the best observation
+    # and the last model 
+    # the model that led to the best iteration: 
+    # 
+    opdf = as.data.frame(x$res$opt.path)
+    dob.best = opdf[x$res$best.ind, ]$dob
+
+    models = x$res$models
+    
+    models = models[c(dob.best, length(models))]
+    # x$res$opt.path = opdf
+    # x$res$final.opt.state = NULL
+    # x$res$opt.path$par.set = NULL
+    list(opt.path = opdf, models = models, runtime = x$runtime)
+  })
+
+  res = ijoin(tab, res)
+
+  if (!dir.exists(file.path("data/runs/mlp/", prob))) {
+    dir.create(file.path("data/runs/mlp/", prob))
+  }
+
+  saveRDS(res, file.path("data/runs/mlp", prob, "mlrmbo_30_repls.rds"))
+}
+
+bla = readRDS("data/runs/mlp/vehicle/mlrmbo_30_repls.rds")[1, ]$result[[1]]$res
+bla = bla$opt.path$par.set
+
+for (i in 1:length(bla)) {
+	print(names(bla)[i])
+	saveRDS(bla[[i]], paste("data/runs/mlp/vehicle/test/", names(bla)[i], ".rds", sep = ""))
+}
+
+for (prob in probs) {
+
+  bla = readRDS(file.path("data/runs/mlp", prob, "mlrmbo_30_repls.rds"))
+  bla[1, ]$result[[1]]$res$opt.path$par.set = NULL
+  bla[2, ]$result[[1]]$res$opt.path$par.set = NULL
+  bla[3, ]$result[[1]]$res$opt.path$par.set = NULL
+
+  saveRDS(bla, file.path("data/runs/mlp", prob, "mlrmbo_30_repls.rds"))
+
 }
 

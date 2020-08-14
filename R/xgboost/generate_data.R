@@ -2,14 +2,14 @@
 
 library(batchtools)
 
-source("R/xgboost/config.R")
+source("R/xgboost_config.R")
 
 lapply(packages, require, character.only = TRUE)
 
 
 # --- 1. SETUP REGISTRY ---
 
-reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/xgboost/config.R")
+reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/xgboost_config.R")
 
 # --- 2. ADD PROBLEMS, ALGORITHMS, EXPERIMENTS ---
 
@@ -78,13 +78,14 @@ for (prob in probs) {
     
     # for reasons of storage, we just store the model that led to the best observation
     # and the last model 
+    # the model that led to the best iteration: 
+    # 
+    opdf = as.data.frame(x$res$opt.path)
+    dob.best = opdf[x$res$best.ind, ]$dob
+
     models = x$res$models
-
-    init.size = 
     
-    idx = c(x$res$best.ind, length())    
-
-    x$res$models = models[length(models)]
+    x$res$models = models[c(dob.best, length(models))]
     x$res$final.opt.state = NULL
     x
   })

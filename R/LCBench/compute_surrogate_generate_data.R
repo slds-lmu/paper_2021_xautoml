@@ -49,7 +49,13 @@ tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 5L)
 
 submitJobs(tosubmit[chunk == 1, ], resources = resources.serial)
 
-res = reduceResultsDataTable(findDone())
+res = reduceResultsDataTable(findDone(), function(x) {
+  model_val_balanced_accuracy = x$opdf_val_balanced_accuracy[final.model.avail == TRUE, ]$model
+  model_test_balanced_accuracy = x$opdf_test_balanced_accuracy[final.model.avail == TRUE, ]$model
+  return(list(model_val_balanced_acc = model_val_balanced_accuracy, model_test_balanced_acc = model_test_balanced_accuracy))
+})
+
+
 res = ijoin(tab, res)
   
 for (prob in unique(res$problem)) {

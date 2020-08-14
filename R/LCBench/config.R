@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "TEST"
+SETUP = "REAL"
 
 switch(SETUP, 
 	"TEST" = {
@@ -79,7 +79,7 @@ mlrmbo = function(data, job, instance, lambda) {
 	  par.set = ps,
 	  noisy = TRUE,
 	  has.simple.signature = FALSE,
-	  minimize = TRUE
+	  minimize = FALSE
 	)
 
 	ctrl = makeMBOControl(store.model.at = 1:200)
