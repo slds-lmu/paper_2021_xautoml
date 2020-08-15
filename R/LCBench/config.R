@@ -52,9 +52,8 @@ pdes = data.table(tasks = tasks)
 mlrmbo = function(data, job, instance, lambda) {
 
 	surrogate_data = readRDS(file.path(instance, "surrogate.rds"))
-	surr_val = surrogate_data$result[[1]]$opdf_val_balanced_accuracy[final.model.avail == TRUE, ]$model[[1]]
-	surr_test = surrogate_data$result[[1]]$opdf_test_balanced_accuracy[final.model.avail == TRUE, ]$model[[1]]
-
+	surr_val = surrogate_data$result[[1]]$model_val_balanced_acc[[1]]
+	surr_test = surrogate_data$result[[1]]$model_test_balanced_acc[[1]]
 
 	# I also samples the variables on a log scale that were originally sampled on a log scale
 	ps = makeParamSet(
