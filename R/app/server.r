@@ -1,21 +1,92 @@
 server <- function(input, output) {
   
   # get datasets and model for chosen dataset and lambda
-  objects <- eventReactive(list(input$dataset, input$lambda),{
+  objects <- eventReactive(list(input$dataset, input$lambda, input$iteration),{
     data = get(paste0("data_",tolower(input$dataset)))
     #browser()
-    print(head(data))
     lambda = as.numeric(input$lambda)
-    print(lambda)
-    object = get_objects(data, lambda)
-    print(object)
-    return(list(model = object$model[[1]], mbo_train = object$data_train,
-    lhs_test = object$data_test))
+    iteration = as.numeric(input$iteration)
+    
+    object = get_objects(data, lambda, iteration)
+    return(list(model = object$model, mbo_train = object$data_train,
+                  lhs_test = object$data_test, model_best = object$model_best, data_holdout = object$test_holdout
+    ))
+    
+    
+  })
+  
+  objects.all <- eventReactive(list(input$dataset, input$lambda, input$iteration.all),{
+    data = get(paste0("data_",tolower(input$dataset)))
+    #browser()
+    lambda = as.numeric(input$lambda)
+    if (input$iteration.all == "Yes") {
+      model = vector("list", length(input$dataset))
+      mbo_train = vector("list", length(input$dataset))
+      iter.min = 1
+      iter.max = 30
+      for (i in iter.min:iter.max) {
+        object = get_objects(data, lambda, i)
+        model[[i]] = object$model
+        mbo_train[[i]] = object$data_train
+      }
+      return(list(model = model, mbo_train = mbo_train))
+    }
+    # else {
+    #   object = get_objects(data, lambda, iteration)
+    #   return(list(model = object$model, mbo_train = object$data_train,
+    #               lhs_test = object$data_test, model_best = object$model_best, data_holdout = object$test_holdout
+    #   ))
+    # }
+    
+  })
+  
+  # counterfactuals data
+  data.counterfactual <- eventReactive(list(input$obs.counter, input$improve.counter), {
+    browser()
+    x.interest = objects()$mbo_train[as.numeric(input$obs.counter),]
+    data = objects()$mbo_train[-as.numeric(input$obs.counter),]
+    pred = Predictor$new(model = objects()$model, data = data, conditional = FALSE)
+    ctr = partykit::ctree_control(maxdepth = 5L)
+    
+    set.seed(1234)
+    pred$conditionals = fit_conditionals(pred$data$get.x(), ctrl = ctr)
+    
+    ###---- Compute counterfactuals ----
+    prediction = pred$predict(x.interest)$.prediction
+    
+    set.seed(1000)
+    cf = Counterfactuals$new(predictor = pred, x.interest = x.interest,
+                                    target = c(min(data$y), prediction - as.numeric(input$improve.counter)*prediction),
+                                    epsilon = 0, generations = list(mosmafs::mosmafsTermStagnationHV(10),
+                                                                    mosmafs::mosmafsTermGenerations(200)),
+                                    # mu = best.params$mu,
+                                    # p.mut = best.params$p.mut, p.rec = best.params$p.rec,
+                                    # p.mut.gen = best.params$p.mut.gen,
+                                    # p.mut.use.orig = best.params$p.mut.use.orig,
+                                    # p.rec.gen = best.params$p.rec.gen,
+                                    initialization = "icecurve"#,
+                                    # p.rec.use.orig = best.params$p.rec.use.orig
+    )
+    
+    # Number of counterfactuals
+    nrow(cf$results$counterfactuals)
+    id = cf$results$counterfactuals$dist.target < 0.01
+    print(sum(id))
+    
+    # Focus counterfactuals that met target
+    cf$results$counterfactuals = cf$results$counterfactuals[which(id), ]
+    cf$results$counterfactuals.diff = cf$results$counterfactuals.diff[which(id), ]
+    return(list(cf, prediction))
   })
   
   # define predictor 
   predictor <- reactive({
     Predictor$new(model = objects()$model, data = objects()$mbo_train)
+  })
+  
+  # define predictor 
+  predictor.test <- reactive({
+    Predictor$new(model = objects()$model, data = objects()$lhs_test[sample(1:nrow(objects()$lhs_test), 500),])
   })
   
   
@@ -36,6 +107,19 @@ server <- function(input, output) {
   
   output$params2 <- renderUI({
     selectInput("paramList2", "Choose Feature", colnames(objects()$lhs_test)[-which(colnames(objects()$lhs_test) %in% c("y",input$paramList1))])
+  })
+  
+  #Feature Importance
+  output$holdout <- renderUI({
+    #browser()
+    if (nrow(objects()$data_holdout) > 50) {
+      c = c("Yes", "No")
+    }
+    else {
+      c = c("No")
+    }
+    
+    selectInput("holdout", "Choose holdout set?", choices = as.list(c), selected = "No")
   })
   
   # Local Interpretation
@@ -76,95 +160,313 @@ server <- function(input, output) {
     summary(objects()$lhs_test)
   })
   
+  # Boxplot Train
+  output$box_train <- renderPlotly({
+    dat <- as.data.frame(scale(objects()$mbo_train))
+    dat.m <- melt(dat,measure.vars = 1:ncol(dat))
+    #library(ggplot2)
+    p <- ggplot(dat.m) + geom_boxplot(aes(x = variable, y = value)) + theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 1))
+    ggplotly(p)
+  })
+  
+  output$box_test <- renderPlotly({
+    #browser()
+    dat <- as.data.frame(scale(objects()$mbo_train))
+    dat.m <- melt(dat,measure.vars = 1:ncol(dat))
+    #library(ggplot2)
+    p <- ggplot(dat.m) + geom_boxplot(aes(x = variable, y = value)) + theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 1))
+    ggplotly(p)
+  })
+  
   
   # Tab: Feature Effects
   
   # ALE Plot  
-  output$ale <- renderPlot({
-    print("test")
-    effects.ale = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "ale")
-    effects.ale$plot() + ggtitle("ALE plot")
+  output$ale <- renderPlotly({
+    #browser()
+    #require(input$paramList)
+    if (is.null(input$paramList)) {
+      return()
+    }
+    else{
+      effects.ale = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "ale", grid.size = 100)
+      if (input$ale.abs == "Yes") {
+        effects.ale$results$.value = effects.ale$results$.value + mean(objects()$mbo_train$y)
+      }
+      hyperparam.best = objects()$mbo_train[which.min(objects()$mbo_train$y),input$paramList]
+      p <- effects.ale$plot() + ggtitle("ALE plot") + geom_vline(xintercept = hyperparam.best, color = "red", alpha = 0.5, linetype = "dashed", size = 1)
+      ggplotly(p)
+    }
+    
   })
+  
+  
+  # PDP Plot
+  output$pdp <- renderPlotly({
+    if (is.null(input$paramList)) {
+      return()
+    }
+    else {
+      # pdp
+      if (input$iteration.all == "Yes") {
+        for (i in 1:length(objects.all()$model)) {
+          #browser()
+          predictor = Predictor$new(model = objects.all()$model[[i]], data = objects.all()$mbo_train[[i]])
+          effects.pdp = FeatureEffect$new(predictor = predictor, feature = input$paramList, method = "pdp")
+          if (i == 1) {
+            pdp = effects.pdp$plot()
+          }
+          else {
+            pdp = pdp + geom_line(aes_string(y = effects.pdp$results$.y.hat))
+          }
+        }
+      }
+      else {
+        effects.pdp = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "pdp")
+        hyperparam.best = objects()$mbo_train[which.min(objects()$mbo_train$y),input$paramList]
+        pdp = effects.pdp$plot() + ggtitle("PD plot") + geom_vline(aes(xintercept = hyperparam.best, color = "hyperparam.best", alpha = 0.5), linetype = "dashed", size = 1) +
+          scale_color_manual(name = "", values = c(hyperparam.best = "red"))
+        if (input$show.obs == "Yes") {
+          pdp = effects.pdp$plot() + ggtitle("PD plot") + geom_vline(aes(xintercept = hyperparam.best, color = "hyperparam.best", alpha = 0.5), linetype = "dashed", size = 1) +
+            geom_point(data = objects()$mbo_train, aes(x = objects()$mbo_train[,input$paramList], y = y, color = "observations", alpha = 0.5)) +
+            scale_color_manual(name = "", values = c(hyperparam.best = "red", observations = "aquamarine2")) 
+        }
+      }
+      
+      ggplotly(pdp)
+    }
+  })
+  
   
   # PDP + ICE Plot
-  output$pdp <- renderPlot({
-    print("test")
-    # pdp
-    effects.pdp = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "pdp")
-    # ice
-    if (input$center == "No") effects = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "pdp+ice")
-    else if (input$center == "Yes") effects = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "pdp+ice", center.at = 0)
-    #browser()
-    edata = na.omit(data.table(
-      id = effects$results$.id,
-      eta = as.numeric(unlist(objects()$mbo_train[input$paramList]))[effects$results$.id],
-      eta.diff = abs(as.numeric(unlist(effects$results[input$paramList])) - as.numeric(unlist(objects()$mbo_train[input$paramList]))[effects$results$.id]),
-      y = effects$results$.value))
-    edata = edata[, list("eta" = eta[which.min(eta.diff)],
-                         "y" = y[which.min(eta.diff)]), by = "id"]
-    pdp = effects.pdp$plot() + ggtitle("PD plot") 
-    ice = effects$plot() + 
-      ggtitle("ICE curves + PD plot") + 
-      geom_point(data = edata, aes(x = eta, y = y), alpha = 0.5, shape = 4) #, col = nrounds)) + scale_color_viridis()
-    pdp + ice
+  output$ice <- renderPlotly({
+    if (is.null(input$paramList)) {
+      return()
+    }
+    else{
+     
+      # ice
+      if (input$center == "No") effects = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "pdp+ice")
+      else if (input$center == "Yes") effects = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "pdp+ice", center.at = min(objects()$mbo_train[,input$paramList]))
+      #browser()
+      edata = na.omit(data.table(
+        id = effects$results$.id,
+        eta = as.numeric(unlist(objects()$mbo_train[input$paramList]))[effects$results$.id],
+        eta.diff = abs(as.numeric(unlist(effects$results[input$paramList])) - as.numeric(unlist(objects()$mbo_train[input$paramList]))[effects$results$.id]),
+        y = effects$results$.y.hat))
+      edata = edata[, list("eta" = eta[which.min(eta.diff)],
+                           "y" = y[which.min(eta.diff)]), by = "id"]
+      ice = effects$plot() + 
+        ggtitle("ICE curves + PD plot") + 
+        geom_point(data = edata, aes(x = eta, y = y), alpha = 0.5, shape = 4) #, col = nrounds)) + scale_color_viridis()
+      ggplotly(ice)
+    }
   })
+  
+  
+  # same Plots with Test set
+  
+  # ALE Plot  
+  output$ale.test <- renderPlotly({
+    #browser()
+    #require(input$paramList)
+    if (is.null(input$paramList)) {
+      return()
+    }
+    else{
+      effects.ale = FeatureEffect$new(predictor = predictor.test(), feature = input$paramList, method = "ale", grid.size = 100)
+      if (input$ale.abs == "Yes") {
+        effects.ale$results$.value = effects.ale$results$.value + mean(objects()$lhs_test$y)
+      }
+      hyperparam.best = objects()$lhs_test[which.min(objects()$lhs_test$y),input$paramList]
+      p <- effects.ale$plot() + ggtitle("ALE plot") #+ geom_vline(xintercept = hyperparam.best, color = "red", alpha = 0.5, linetype = "dashed", size = 1)
+      ggplotly(p)
+    }
+    
+  })
+  
+  
+  # PDP Plot
+  output$pdp.test <- renderPlotly({
+    if (is.null(input$paramList)) {
+      return()
+    }
+    else{
+      # pdp
+      effects.pdp = FeatureEffect$new(predictor = predictor.test(), feature = input$paramList, method = "pdp")
+      #hyperparam.best = objects()$lhs_test[which.min(objects()$lhs_test$y),input$paramList]
+      pdp = effects.pdp$plot() + ggtitle("PD plot") #+ geom_vline(aes(xintercept = hyperparam.best, color = "hyperparam.best", alpha = 0.5), linetype = "dashed", size = 1) +
+        #scale_color_manual(name = "", values = c(hyperparam.best = "red"))
+      if (input$show.obs == "Yes") {
+        pdp = effects.pdp$plot() + ggtitle("PD plot") +
+         # geom_vline(aes(xintercept = hyperparam.best, color = "hyperparam.best", alpha = 0.5), linetype = "dashed", size = 1) +
+          geom_point(data = objects()$lhs_test, aes(x = objects()$lhs_test[,input$paramList], y = y, color = "observations", alpha = 0.5)) +
+          scale_color_manual(name = "", values = c(observations = "aquamarine2")) 
+      }
+      ggplotly(pdp)
+    }
+  })
+  
+  
+  # PDP + ICE Plot
+  output$ice.test <- renderPlotly({
+    if (is.null(input$paramList)) {
+      return()
+    }
+    else{
+      # ice
+      if (input$center == "No") effects = FeatureEffect$new(predictor = predictor.test(), feature = input$paramList, method = "pdp+ice")
+      else if (input$center == "Yes") effects = FeatureEffect$new(predictor = predictor.test(), feature = input$paramList, method = "pdp+ice", center.at = 0)
+      #browser()
+      edata = na.omit(data.table(
+        id = effects$results$.id,
+        eta = as.numeric(unlist(objects()$lhs_test[input$paramList]))[effects$results$.id],
+        eta.diff = abs(as.numeric(unlist(effects$results[input$paramList])) - as.numeric(unlist(objects()$lhs_test[input$paramList]))[effects$results$.id]),
+        y = effects$results$.y.hat))
+      edata = edata[, list("eta" = eta[which.min(eta.diff)],
+                           "y" = y[which.min(eta.diff)]), by = "id"]
+      ice = effects$plot() + 
+        ggtitle("ICE curves + PD plot") + 
+        geom_point(data = edata, aes(x = eta, y = y), alpha = 0.5, shape = 4) #, col = nrounds)) + scale_color_viridis()
+      ggplotly(ice)
+    }
+  })
+  
+  
+  
   
   # 2d interactions: HStatistics
-  output$hstat <- renderPlot({
-    plot(Interaction$new(predictor())) + ggtitle("H-statistics")
+  output$hstat <- renderPlotly({
+    p <- plot(Interaction$new(predictor())) + ggtitle("H-statistics")
+    ggplotly(p)
   })
   
-  output$hstat2feat <- renderPlot({
-    plot(Interaction$new(predictor(), feature = input$paramList1)) + ggtitle(paste0(input$paramList1, ": H-statistics"))
+  output$hstat2feat <- renderPlotly({
+    if (is.null(input$paramList1)){
+      return()
+    }
+    else{
+      p <- plot(Interaction$new(predictor(), feature = input$paramList1)) + ggtitle(paste0(input$paramList1, ": H-statistics"))
+      ggplotly(p)
+    }
   })
   
   # 2 dim ale
-  output$ale2d <- renderPlot({
-    #browser()
-    ale2d = FeatureEffect$new(predictor = predictor(), feature = c(input$paramList1, input$paramList2), 
-                              method = "ale", grid.size = 50)
-    ale = ale2d$plot() + scale_fill_viridis() + ggtitle(paste0(input$paramList1, " vs. ", input$paramList2, ": 2d-ALE"))
-    ale
+  output$ale2d <- renderPlotly({
+    if (input$showPdp == "No") {
+      return()
+    }
+    else{
+      
+      #browser()
+      ale2d = FeatureEffect$new(predictor = predictor(), feature = c(input$paramList1, input$paramList2), 
+                                method = "ale", grid.size = 50)
+      ale = ale2d$plot() + scale_fill_viridis() + ggtitle(paste0(input$paramList1, " vs. ", input$paramList2, ": 2d-ALE"))
+      ggplotly(ale)
+    }
   })
   
   # 2 dim pdp
-  output$pdp2d <- renderPlot({
-    pdp2d = FeatureEffect$new(predictor = predictor(), feature = c(input$paramList1, input$paramList2), 
-                              method = "pdp", grid.size = 50)
-    pdp2d$plot() + scale_fill_viridis() + ggtitle(paste0(input$paramList1, " vs. ", input$paramList2, ": 2d-PDP"))
+  output$pdp2d <- renderPlotly({
+    if (input$showPdp == "No") {
+      return()
+    }
+    else{
+      pdp2d = FeatureEffect$new(predictor = predictor(), feature = c(input$paramList1, input$paramList2), 
+                                method = "pdp", grid.size = 50)
+      pdp = pdp2d$plot() + scale_fill_viridis() + ggtitle(paste0(input$paramList1, " vs. ", input$paramList2, ": 2d-PDP"))
+      ggplotly(pdp)
+    }
   })
   
   
   # Tab: Feature Importance
   
   # Permutation Feature importance
-  output$featImp <- renderPlot({
-    pred.test = Predictor$new(model = objects()$model, data = objects()$lhs_test, y = "y")
-    pfi = FeatureImp$new(predictor = pred.test, loss = "rmse")
-    pfi$plot()
+  output$featImp <- renderPlotly({
+    #browser()
+    if (is.null(input$holdout)) return()
+    else {
+      if (input$holdout == "No") {
+        pred.test = predictor.test()
+      }
+      else if (input$holdout == "Yes") {
+        pred.test = Predictor$new(model = objects()$model_best, data = objects()$data_holdout, y = "y")
+      }
+    
+      pfi = FeatureImp$new(predictor = pred.test, loss = "rmse")
+      p = pfi$plot()
+      ggplotly(p)
+    }
   })
   
   
   # Tab: Local Interpretation
   
   # LIME
-  output$lime <- renderPlot({
-    lime.best = LocalModel$new(predictor(), x.interest = round(objects()$mbo_train[input$obs1,], 3), k = 5)
-    lime.worst = LocalModel$new(predictor(), x.interest = round(objects()$mbo_train[input$obs2, ], 3), k = 5)
-    objects()$mbo_train[c(input$obs1, input$obs2),]
-    p = plot(lime.best) + plot(lime.worst)
-    p
+  output$lime.best <- renderPlotly({
+    if (is.null(input$obs2)) {
+      return()
+    }
+    else{
+      lime.best = LocalModel$new(predictor(), x.interest = round(objects()$mbo_train[input$obs1,], 3), k = 5)
+      ggplotly(plot(lime.best))
+    }
+  })
+  
+  output$lime.worst <- renderPlotly({
+    if (is.null(input$obs2)) {
+      return()
+    }
+    else{
+      lime.worst = LocalModel$new(predictor(), x.interest = round(objects()$mbo_train[input$obs2, ], 3), k = 5)
+      ggplotly(plot(lime.worst))
+    }
   })
   
   # Shapley
-  output$shap <- renderPlot({
-    shap.best = Shapley$new(predictor(), x.interest = round(objects()$mbo_train[input$obs1,], 3))
-    shap.worst = Shapley$new(predictor(), x.interest = round(objects()$mbo_train[input$obs2, ], 3))
-    p = plot(shap.best) + plot(shap.worst)
-    p
+  output$shap.best <- renderPlotly({
+    if (is.null(input$obs2)) {
+      return()
+    }
+    else{
+      shap.best = Shapley$new(predictor(), x.interest = round(objects()$mbo_train[input$obs1,], 3))
+      ggplotly(plot(shap.best))
+    }
   })
   
+  output$shap.worst <- renderPlotly({
+    if (is.null(input$obs2)) {
+      return()
+    }
+    else{
+      shap.worst = Shapley$new(predictor(), x.interest = round(objects()$mbo_train[input$obs2, ], 3))
+      ggplotly(plot(shap.worst))
+    }
+  })
   
+  # Counterfactuals
+  output$counter.table <- renderTable({
+    as.data.frame(t(data.counterfactual()[[1]]$get_frequency()))
+  })
+  
+  output$counter.plot1 <- renderPlotly({
+    table = as.data.frame(t(data.counterfactual()[[1]]$get_frequency()))
+    if (length(which(table[1,] > 0.5)) < 2) return()
+    else{
+      p = data.counterfactual()[[1]]$plot_parallel(features = colnames(table)[which(table[1,] > 0.5)], plot.x.interest = TRUE)
+      p = p + scale_x_discrete(expand = c(0.1, 0.1), labels = colnames(table)[which(table[1,] > 0.5)])
+      p = p + ggtitle(paste0("Actual prediction ", round(data.counterfactual()[[2]], 4)))
+      ggplotly(p)
+    }
+    
+  })
+  
+  output$counter.plot2 <- renderPlot({
+    table = as.data.frame(t(data.counterfactual()[[1]]$get_frequency()))
+    p = data.counterfactual()[[1]]$plot_surface(features = colnames(table)[1:2])
+    p
+  })
   
   
   
