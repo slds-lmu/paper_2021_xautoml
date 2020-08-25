@@ -138,7 +138,7 @@ randomsearch = function(data, job, instance
 
 	# filter for those that take too long...
 	if (getTaskId(instance$task) %in% c("numerai28.6")) {
-		n = 10^3
+		n = 10^3 / 2
 	} else {
 		n = 10^4
 	}
@@ -159,7 +159,7 @@ randomsearch = function(data, job, instance
 }
 
 ALGORITHMS = list(
-    mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 2))),
+    mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 2, 10))),
     randomsearch = list(fun = randomsearch, ades = data.table())
 )
 

@@ -32,3 +32,15 @@ for (prob in c("blood-transfusion-service-center", "kc1")) {
 
 
 
+# # Investigate how se and mean are compared to each other
+
+# toreduce = ijoin(tab, findDone())
+# toreduce = toreduce[ ,.SD[which.min(job.id)], by = problem]
+# res = reduceResultsDataTable(toreduce, function(x) {
+# 	y = as.data.frame(x$res$opt.path)
+# 	bla = rbind(as.data.frame(t(as.matrix(summary(y$mean)))), as.data.frame(t(as.matrix(summary(y$se)))))
+# 	rownames(bla) = c("mean", "se")
+# 	bla
+# })
+
+
