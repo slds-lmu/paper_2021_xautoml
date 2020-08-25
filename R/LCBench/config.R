@@ -82,7 +82,7 @@ mlrmbo = function(data, job, instance, lambda) {
 	)
 
 	ctrl = makeMBOControl(store.model.at = 1:200)
-	ctrl = setMBOControlTermination(ctrl, max.evals = 200, time.budget = RUNTIME_MAX)
+	ctrl = setMBOControlTermination(ctrl, max.evals = 40, time.budget = RUNTIME_MAX)
 	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
 	des = generateDesign(n = 2 * length(ps$pars), par.set = ps, fun = lhs::randomLHS)
@@ -90,6 +90,14 @@ mlrmbo = function(data, job, instance, lambda) {
     start_t = Sys.time()
 	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
     end_t = Sys.time()
+
+    opdf = as.data.frame(res$opt.path)
+    dob.best = opdf[res$best.ind, ]$dob
+
+    models = res$models
+    
+    res$models = models[c(dob.best, length(models))]
+    res$final.opt.state = NULL
 
     return(list(
       res = res,
@@ -99,7 +107,7 @@ mlrmbo = function(data, job, instance, lambda) {
 
 
 ALGORITHMS = list(
-    mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 2)))
+    mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 2, 10)))
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)
