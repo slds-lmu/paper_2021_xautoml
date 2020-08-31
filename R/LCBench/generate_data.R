@@ -28,13 +28,13 @@ for (i in 1:length(ALGORITHMS)) {
 addExperiments(
   reg = reg, 
   algo.designs = ades, 
-  repls = 30L)
+  repls = 1L)
 
 
 # --- 3. SUBMIT ON LRZ ---
 
 resources.serial = list(
-  walltime = 3600L * 24L * 1L, memory = 1024L * 2L,
+  walltime = 3600L * 24L * 4L, memory = 1024L * 2L,
   clusters = "serial", max.concurrent.jobs = 1000L # get name from lrz homepage)
 )
 
@@ -42,11 +42,13 @@ reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem", "lambda"))
 
+reg$cluster.functions = makeClusterFunctionsMulticore(8L)
 
 # start with some problems only
 tosubmit = ijoin(tab, findNotDone())
-tosubmit = tosubmit[, .SD[which.min(job.id)], by = list(problem, lambda)]
-tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 5L)
+tosubmit = tosubmit[lambda %in% c(1, 10), ]
+# tosubmit = tosubmit[, .SD[which.min(job.id)], by = list(problem, lambda)]
+tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 96L)
 
 submitJobs(tosubmit, resources = resources.serial)
 
@@ -103,3 +105,8 @@ for (prob in probs) {
 
 }
 
+
+res = reduceResultsDataTable(findDone()[1, ], function(x) x$res$final.opt.state)
+res = ijoin(tab, res)
+
+saveRDS(res[1, ], "mlp_example.rds")

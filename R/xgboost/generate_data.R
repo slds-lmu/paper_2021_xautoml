@@ -55,7 +55,7 @@ probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "
 tosubmit = tab[algorithm == "mlrmbo", ]
 tosubmit = tosubmit[problem %in% probs, ]
 # tosubmit = tosubmit[, .SD[which.min(job.id)], by = c("problem")]
-tosubmit = ijoin(tosubmit, findNotDone())
+tosubmit = ijoin(tosubmit, findExpired())
 
 tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10L)
 
