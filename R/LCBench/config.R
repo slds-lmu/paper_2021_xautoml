@@ -12,7 +12,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 60L
     # registry name for storing files on drive 
-		registry_name = "mlp_mlrmbo_test" 
+		registry_name = "mlp_mlrmbo_registry_temp" 
 	},
 	"REAL" = {
 		# overwrite registry?
@@ -20,7 +20,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
     # registry name for storing files on drive     
-		registry_name = "mlp_mlrmbo"
+		registry_name = "mlp_mlrmbo_registry"
 	}
 )
 
