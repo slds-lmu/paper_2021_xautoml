@@ -18,9 +18,9 @@ switch(SETUP,
 		# overwrite registry?
 		OVERWRITE = FALSE
 		# termination criterion for each run
-		RUNTIME_MAX = 302400
+		RUNTIME_MAX = 60 * 60 * 12 # one run should last at most 12 hours
     # registry name for storing files on drive     
-		registry_name = "xgboost_registry"
+		registry_name = "xgboost_registry_hout"
 	}
 )
 
@@ -86,7 +86,7 @@ mlrmbo = function(data, job, instance,
 			objective = "binary:logistic", 
 			par.vals = x)		
 		task = instance$task
-	    resample(lrn, task, cv3, show.info = FALSE)$aggr
+	    resample(lrn, task, hout, show.info = FALSE)$aggr
 	  },
 	  par.set = ps,
 	  noisy = TRUE,
@@ -128,7 +128,7 @@ randomsearch = function(data, job, instance
 			objective = "binary:logistic", 
 			par.vals = x)		
 		task = instance$task
-	    resample(lrn, task, cv3, show.info = FALSE)$aggr
+	    resample(lrn, task, hout, show.info = FALSE)$aggr
 	  },
 	  par.set = ps,
 	  noisy = TRUE,

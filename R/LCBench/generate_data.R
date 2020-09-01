@@ -46,7 +46,7 @@ tab = summarizeExperiments(
 # start with some problems only
 tosubmit = ijoin(tab, findNotDone())
 # tosubmit = tosubmit[, .SD[which.min(job.id)], by = list(problem, lambda)]
-tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 96)
+tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 30)
 
 submitJobs(tosubmit, resources = resources.serial)
 
