@@ -2,7 +2,7 @@
 
 library(batchtools)
 
-source("R/xgboost_config.R")
+source("R/xgboost/config.R")
 
 lapply(packages, require, character.only = TRUE)
 
