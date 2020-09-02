@@ -104,12 +104,21 @@ mlrmbo = function(data, job, instance,
 	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
     end_t = Sys.time()
 
+    opdf = as.data.frame(res$opt.path)
+    dob.best = opdf[res$best.ind, ]$dob
+
+    models = res$models
+    
+    models = models[c(dob.best, length(models))]
+    res$final.opt.state = NULL
+
     return(list(
     	opt.path = opdf, 
     	models = models, 
     	runtime = as.integer(end_t) - as.integer(start_t)
     	)
     )
+
 }
 
 
@@ -153,6 +162,14 @@ randomsearch = function(data, job, instance
     start_t = Sys.time()
 	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
     end_t = Sys.time()
+
+    opdf = as.data.frame(res$opt.path)
+    dob.best = opdf[res$best.ind, ]$dob
+
+    models = res$models
+    
+    models = models[c(dob.best, length(models))]
+    res$final.opt.state = NULL
 
     return(list(
     	opt.path = opdf, 

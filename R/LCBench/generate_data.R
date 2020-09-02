@@ -109,13 +109,13 @@ for (prob in probs) {
 # we have 146GB for 1500 experiments
 # we will now reduce it
 
-# results = list.files("mlp_mlrmbo_registry/results")
-# dir.create("mlp_mlrmbo_registry/results2")
+results = list.files("mlp_mlrmbo_registry/results")
+dir.create("mlp_mlrmbo_registry/results2")
 
-# for (i in seq_along(results)) {
-# 	newpath = file.path("mlp_mlrmbo_registry/results2/", results[i])
-# 	res = readRDS(file.path("mlp_mlrmbo_registry/results/", results[i]))
-# 	res = list(opt.path = as.data.frame(res$res$opt.path), models = res$res$models, runtime = res$runtime)	
-# 	saveRDS(res, newpath)
-# }
+for (i in seq_along(results)) {
+	newpath = file.path("mlp_mlrmbo_registry/results2/", results[i])
+	res = readRDS(file.path("mlp_mlrmbo_registry/results/", results[i]))
+	res = list(opt.path = as.data.frame(res$res$opt.path), models = res$res$models, runtime = res$runtime)	
+	saveRDS(res, newpath)
+}
 
