@@ -183,3 +183,20 @@ perform_random_search = function(df, search_space_ids, ps_surrogate, objective, 
 }
 
 
+# bla = readRDS("mlp_mlrmbo_registry/results/1.rds")
+# mylist = bla$res$opt.path$par.set$pars
+
+# for (i in seq_len(length(mylist))) {
+#   path = paste("bla/", names(mylist)[i], ".rds", sep = "")
+#   saveRDS(mylist[[i]], path)
+  
+#   print(names(mylist)[i])
+#   print(file.info(path)$size / 1000000)
+# }
+
+# bla$res$opt.path$par.set$pars = NULL
+
+# par = lapply(bla$res$opt.path$par.set$par, function(x) {
+#   x$trafo = NULL
+#   return(x)
+# })

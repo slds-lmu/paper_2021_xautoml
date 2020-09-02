@@ -105,9 +105,11 @@ mlrmbo = function(data, job, instance,
     end_t = Sys.time()
 
     return(list(
-      res = res,
-      runtime = as.integer(end_t) - as.integer(start_t)
-    ))
+    	opt.path = opdf, 
+    	models = models, 
+    	runtime = as.integer(end_t) - as.integer(start_t)
+    	)
+    )
 }
 
 
@@ -153,9 +155,11 @@ randomsearch = function(data, job, instance
     end_t = Sys.time()
 
     return(list(
-      res = res,
-      runtime = as.integer(end_t) - as.integer(start_t)
-    ))
+    	opt.path = opdf, 
+    	models = models, 
+    	runtime = as.integer(end_t) - as.integer(start_t)
+    	)
+    )
 }
 
 ALGORITHMS = list(

@@ -100,7 +100,7 @@ mlrmbo = function(data, job, instance, lambda) {
     res$final.opt.state = NULL
 
     return(list(
-      res = res,
+      res = list(opt.path = opdf, models = models),
       runtime = as.integer(end_t) - as.integer(start_t)
     ))
 }
@@ -113,4 +113,5 @@ ALGORITHMS = list(
 ades = lapply(ALGORITHMS, function(x) x$ades)
 
 
+dir.create("bla")
 
