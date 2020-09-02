@@ -96,7 +96,7 @@ mlrmbo = function(data, job, instance, lambda) {
 
     models = res$models
     
-    res$models = models[c(dob.best, length(models))]
+    models = models[c(dob.best, length(models))]
     res$final.opt.state = NULL
 
     return(list(
