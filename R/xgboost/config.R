@@ -164,16 +164,10 @@ randomsearch = function(data, job, instance
     end_t = Sys.time()
 
     opdf = as.data.frame(res$opt.path)
-    dob.best = opdf[res$best.ind, ]$dob
-
-    models = res$models
-    
-    models = models[c(dob.best, length(models))]
-    res$final.opt.state = NULL
 
     return(list(
     	opt.path = opdf, 
-    	models = models, 
+    	models = NULL, 
     	runtime = as.integer(end_t) - as.integer(start_t)
     	)
     )
