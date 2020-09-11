@@ -1,7 +1,5 @@
 # get data and model
 setwd("C:/Users/rherb/Documents/RProjects/paper_2020_xautoml")
-library("ggplot2")
-source("R/app/global.r")
 #library(iml)
 library(mlrMBO)
 library(data.table)
@@ -12,7 +10,7 @@ library(gower)
 library(corrplot)
 library(shinycssloaders)
 library(plotly)
-#source("R/data_prep.r")
+source("R/data_prep.r")
 param_list = data_btsc$tasks
 
 devtools::load_all("../moc/iml", export_all = FALSE)
@@ -20,7 +18,7 @@ devtools::load_all("../moc/counterfactuals", export_all = FALSE)
 
 library("mlr")
 library("mlrCPO")
-
+library("ggplot2")
 
 theme_set(theme_minimal())
 
@@ -40,7 +38,7 @@ ui <- fluidPage(
       uiOutput("dataset"),
       selectInput("lambda", "Exploration factor lambda", c(0.5, 1, 2)),
       selectInput("iteration", "Number of iteration", c(1:30)),
-      selectInput("iteration.all", "Show all iterations (only PDP)", c("Yes", "No")),
+      selectInput("iteration.all", "Show all iterations (only PDP)", c("No", "Yes")),
       br(),
       br(),
       

@@ -213,25 +213,13 @@ server <- function(input, output) {
       return()
     }
     else{
-      # effects.ale = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "ale", grid.size = 100)
-      # if (input$ale.abs == "Yes") {
-      #   effects.ale$results$.value = effects.ale$results$.value + mean(objects()$mbo_train$y)
-      # }
-      effects.ale = df_ale[which(df_ale$feature == input$paramList & df_ale$lambda == input$lambda),]
-      data.distr = data.train[which(data.train$extrapol == input$lambda),]
-      ale = ggplot(effects.ale) + 
-        geom_rect(aes(xmin = hyper.q25.train, xmax = hyper.q75.train, ymin = min(mean.train) - 2*max(sd.train), ymax = max(mean.train) + 2*max(sd.train)), fill = "cadetblue2", alpha = 0.4) +
-        geom_segment(aes(x = hyper.mean.train, y = min(mean.train) - 2*max(sd.train),  xend = hyper.mean.train, yend = max(mean.train) + 2*max(sd.train), color = "best.config.mean.IQR"), lwd = 1) +
-        geom_ribbon(aes(x = grid.train, y = mean.train, ymin = mean.train - 1.96*sd.train, ymax = mean.train + 1.96*sd.train), alpha = 0.3, fill = "grey") + 
-        geom_line(aes(x = grid.train, y = mean.train, color = "ALE.CI95"), lwd = 1) + 
-        geom_rug(data = data.distr, aes(x = data.distr[,input$paramList]), sides = "b") +
-        scale_color_manual(name = "", values = c(ALE.CI95 = "grey", best.config.mean.IQR = "cadetblue3")) +
-        theme_bw() +
-        labs(x = input$paramList, y = "Performance") +
-        ggtitle(paste("ALE of", input$paramList))
-      
-      ggplotly(ale) %>%
-        layout(legend = list(orientation = "h", x = 0.1, y = 1))
+      effects.ale = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "ale", grid.size = 100)
+      if (input$ale.abs == "Yes") {
+        effects.ale$results$.value = effects.ale$results$.value + mean(objects()$mbo_train$y)
+      }
+      hyperparam.best = objects()$mbo_train[which.min(objects()$mbo_train$y),input$paramList]
+      p <- effects.ale$plot() + ggtitle("ALE plot") + geom_vline(xintercept = hyperparam.best, color = "red", alpha = 0.5, linetype = "dashed", size = 1)
+      ggplotly(p)
     }
     
   })
@@ -245,33 +233,32 @@ server <- function(input, output) {
     else {
       # pdp
       if (input$iteration.all == "Yes") {
-        effects.pdp = df_pdp[which(df_pdp$feature == input$paramList & df_pdp$lambda == input$lambda),]
-        data.distr = data.train[which(data.train$extrapol == input$lambda),]
-        pdp = ggplot(effects.pdp) + 
-          geom_rect(aes(xmin = hyper.q25.train, xmax = hyper.q75.train, ymin = min(mean.train) - 2*max(sd.train), ymax = max(mean.train) + 2*max(sd.train)), fill = "cadetblue2", alpha = 0.4) +
-          geom_segment(aes(x = hyper.mean.train, y = min(mean.train) - 2*max(sd.train),  xend = hyper.mean.train, yend = max(mean.train) + 2*max(sd.train), color = "best.config.mean.IQR"), lwd = 1) +
-          geom_ribbon(aes(x = grid.train, y = mean.train, ymin = mean.train - 1.96*sd.train, ymax = mean.train + 1.96*sd.train), alpha = 0.3, fill = "grey") + 
-          geom_line(aes(x = grid.train, y = mean.train, color = "PDP.CI95"), lwd = 1) + 
-          geom_rug(data = data.distr, aes(x = data.distr[,input$paramList]), sides = "b") +
-          scale_color_manual(name = "", values = c(PDP.CI95 = "grey", best.config.mean.IQR = "cadetblue3")) +
-          theme_bw() +
-          labs(x = input$paramList, y = "Performance") +
-          ggtitle(paste("PDP of", input$paramList))
+        for (i in 1:length(objects.all()$model)) {
+          #browser()
+          predictor = Predictor$new(model = objects.all()$model[[i]], data = objects.all()$mbo_train[[i]])
+          effects.pdp = FeatureEffect$new(predictor = predictor, feature = input$paramList, method = "pdp")
+          if (i == 1) {
+            pdp = effects.pdp$plot()
+          }
+          else {
+            pdp = pdp + geom_line(aes_string(y = effects.pdp$results$.y.hat))
+          }
+        }
       }
       else {
         effects.pdp = FeatureEffect$new(predictor = predictor(), feature = input$paramList, method = "pdp")
         hyperparam.best = objects()$mbo_train[which.min(objects()$mbo_train$y),input$paramList]
         pdp = effects.pdp$plot() + ggtitle("PD plot") + geom_vline(aes(xintercept = hyperparam.best, color = "config.best"), alpha = 0.5, linetype = "dashed", size = 1) +
-          scale_color_manual(name = "", values = c(config.best = "red")) + theme(legend.position = c(0.8, 0.8), legend.text = element_text(size = 6))
+          scale_color_manual(name = "", values = c(config.best = "red")) + theme(legend.position=c(0.8, 0.8), legend.text = element_text(size = 6))
         if (input$show.obs == "Yes") {
           pdp = effects.pdp$plot() + ggtitle("PD plot") + geom_vline(aes(xintercept = hyperparam.best, color = "hyperparam.best"), alpha = 0.5, linetype = "dashed", size = 1) +
             geom_point(data = objects()$mbo_train, aes(x = objects()$mbo_train[,input$paramList], y = y, color = "observations"), alpha = 0.5) +
-            scale_color_manual(name = "", values = c(hyperparam.best = "red", observations = "aquamarine2")) + theme(legend.position = c(0.8, 0.8), legend.text = element_text(size = 6))
+            scale_color_manual(name = "", values = c(hyperparam.best = "red", observations = "aquamarine2")) + theme(legend.position=c(0.8, 0.8), legend.text = element_text(size = 6))
         }
       }
       
       ggplotly(pdp) %>%
-        layout(legend = list(orientation = "h", x = 0.1, y = 1))
+        layout(legend = list(orientation = "h", x = 0.6, y = 1))
     }
   })
   
@@ -312,25 +299,13 @@ server <- function(input, output) {
       return()
     }
     else{
-      # effects.ale = FeatureEffect$new(predictor = predictor.test(), feature = input$paramList, method = "ale", grid.size = 100)
-      # if (input$ale.abs == "Yes") {
-      #   effects.ale$results$.value = effects.ale$results$.value + mean(objects()$lhs_test$y)
-      # }
-      effects.ale = df_ale[which(df_ale$feature == input$paramList & df_ale$lambda == input$lambda),]
-      data.distr = data.test[which(data.test$extrapol == input$lambda)[test.sample],]
-      ale = ggplot(effects.ale) + 
-        geom_rect(aes(xmin = hyper.q25.test, xmax = hyper.q75.test, ymin = min(mean.test) - 2*max(sd.test), ymax = max(mean.test) + 2*max(sd.test)), fill = "cadetblue2", alpha = 0.4) +
-        geom_segment(aes(x = hyper.mean.test, y = min(mean.test) - 2*max(sd.test),  xend = hyper.mean.test, yend = max(mean.test) + 2*max(sd.test), color = "best.config.mean.IQR"), lwd = 1) +
-        geom_ribbon(aes(x = grid.test, y = mean.test, ymin = mean.test - 1.96*sd.test, ymax = mean.test + 1.96*sd.test), alpha = 0.3, fill = "grey") + 
-        geom_line(aes(x = grid.test, y = mean.test, color = "ALE.CI95"), lwd = 1) + 
-        geom_rug(data = data.distr, aes(x = data.distr[,input$paramList]), sides = "b") +
-        scale_color_manual(name = "", values = c(ALE.CI95 = "grey", best.config.mean.IQR = "cadetblue3")) +
-        theme_bw() +
-        labs(x = input$paramList, y = "Performance") +
-        ggtitle(paste("ALE of", input$paramList))
-      
-      ggplotly(ale) %>%
-        layout(legend = list(orientation = "h", x = 0.1, y = 1))
+      effects.ale = FeatureEffect$new(predictor = predictor.test(), feature = input$paramList, method = "ale", grid.size = 100)
+      if (input$ale.abs == "Yes") {
+        effects.ale$results$.value = effects.ale$results$.value + mean(objects()$lhs_test$y)
+      }
+      hyperparam.best = objects()$lhs_test[which.min(objects()$lhs_test$y),input$paramList]
+      p <- effects.ale$plot() + ggtitle("ALE plot") #+ geom_vline(xintercept = hyperparam.best, color = "red", alpha = 0.5, linetype = "dashed", size = 1)
+      ggplotly(p)
     }
     
   })
@@ -342,22 +317,18 @@ server <- function(input, output) {
       return()
     }
     else{
-      effects.pdp = df_pdp[which(df_pdp$feature == input$paramList & df_pdp$lambda == input$lambda),]
-      data.distr = data.test[which(data.test$extrapol == input$lambda)[test.sample],]
-      #browser()
-      pdp = ggplot(effects.pdp) + 
-        geom_rect(aes(xmin = hyper.q25.test, xmax = hyper.q75.test, ymin = min(mean.test) - 2*max(sd.test), ymax = max(mean.test) + 2*max(sd.test)), fill = "cadetblue2", alpha = 0.4) +
-        geom_segment(aes(x = hyper.mean.test, y = min(mean.test) - 2*max(sd.test),  xend = hyper.mean.test, yend = max(mean.test) + 2*max(sd.test), color = "best.config.mean.IQR"), lwd = 1) +
-        geom_ribbon(aes(x = grid.test, y = mean.test, ymin = mean.test - 1.96*sd.test, ymax = mean.test + 1.96*sd.test), alpha = 0.3, fill = "grey") + 
-        geom_line(aes(x = grid.test, y = mean.test, color = "PDP.CI95"), lwd = 1) + 
-        geom_rug(data = data.distr, aes(x = data.distr[,input$paramList]), sides = "b") +
-        scale_color_manual(name = "", values = c(PDP.CI95 = "grey", best.config.mean.IQR = "cadetblue3")) +
-        theme_bw() +
-        labs(x = input$paramList, y = "Performance") +
-        ggtitle(paste("PDP of", input$paramList))
-      
-      ggplotly(pdp) %>%
-        layout(legend = list(orientation = "h", x = 0.1, y = 1))
+      # pdp
+      effects.pdp = FeatureEffect$new(predictor = predictor.test(), feature = input$paramList, method = "pdp")
+      #hyperparam.best = objects()$lhs_test[which.min(objects()$lhs_test$y),input$paramList]
+      pdp = effects.pdp$plot() + ggtitle("PD plot") #+ geom_vline(aes(xintercept = hyperparam.best, color = "hyperparam.best", alpha = 0.5), linetype = "dashed", size = 1) +
+        #scale_color_manual(name = "", values = c(hyperparam.best = "red"))
+      if (input$show.obs == "Yes") {
+        pdp = effects.pdp$plot() + ggtitle("PD plot") +
+         # geom_vline(aes(xintercept = hyperparam.best, color = "hyperparam.best", alpha = 0.5), linetype = "dashed", size = 1) +
+          geom_point(data = objects()$lhs_test, aes(x = objects()$lhs_test[,input$paramList], y = y, color = "observations", alpha = 0.5)) +
+          scale_color_manual(name = "", values = c(observations = "aquamarine2")) 
+      }
+      ggplotly(pdp)
     }
   })
   

@@ -122,81 +122,127 @@ test.sample = sample(1:(nrow(data.test)/length(lambda)), 2000)
 
 features = colnames(data.train)[-which(colnames(data.train) %in% c("y", "extrapol", "iteration"))]
 lambda = as.character(lambda)
-df_pdp = data.frame("feature" = character(), "lambda" = character(), "grid.train" = numeric(), "mean.train" = numeric(), "sd.train" = numeric(), "grid.test" = numeric(), "mean.test" = numeric(), "sd.test" = numeric())
-df_ale = data.frame("feature" = character(), "lambda" = character(), "grid.train" = numeric(), "mean.train" = numeric(), "sd.train" = numeric(), "grid.test" = numeric(), "mean.test" = numeric(), "sd.test" = numeric())
+df = data.frame("feature" = character(), "lambda" = character(), "grid.train" = numeric(), "mean.train" = numeric(), "sd.train" = numeric(), 
+                    "grid.test" = numeric(), "mean.test" = numeric(), "sd.test" = numeric(), "hyper.q25.train" = numeric(), "hyper.mean.train" = numeric(), "hyper.q75.train" = numeric(), 
+                    "hyper.q25.test" = numeric(), "hyper.mean.test" = numeric(), "hyper.q75.test" = numeric())
+df_pdp = df_ale = df
+
+feature = features[-which(names(features) == "max_depth")]
 for (k in feature) {
   for (l in lambda) {
-    for (i in 1:n_rep) {
-      data.train.sub = data.train[which(data.train$extrapol == l & data.train$iteration == i), c(1:(length(features) + 1))]
-      data.test.sub =  data.test[which(data.test$extrapol == l)[test.sample], c(1:(length(features) + 1))]
-      
-      # pdp on train set
-      predictor = Predictor$new(model = model.list[[l]][[i]], data = data.train.sub)
-      data.train.pdp.sub = FeatureEffect$new(predictor = predictor, feature = k, method = "pdp")$results
-      data.train.pdp.sub$iteration = i
-      data.train.pdp.sub$grid = 1:nrow(data.train.pdp.sub)
-      if (i == 1) data.train.pdp = data.train.pdp.sub
-      else data.train.pdp = rbind(data.train.pdp, data.train.pdp.sub)
-      
-      # pdp on test set
-      predictor.test = Predictor$new(model = model.list[[l]][[i]], data = data.test.sub)
-      data.test.pdp.sub = FeatureEffect$new(predictor = predictor.test, feature = k, method = "pdp")$results
-      data.test.pdp.sub$iteration = i
-      data.test.pdp.sub$grid = 1:nrow(data.test.pdp.sub)
-      if (i == 1) data.test.pdp = data.test.pdp.sub
-      else data.test.pdp = rbind(data.test.pdp, data.test.pdp.sub)
-      
-      # ale on train set
-      data.train.ale.sub = FeatureEffect$new(predictor = predictor, feature = k, method = "ale")$results
-      data.train.ale.sub$iteration = i
-      data.train.ale.sub$grid = 1:nrow(data.train.ale.sub)
-      if (i == 1) data.train.ale = data.train.ale.sub
-      else data.train.ale = rbind(data.train.ale, data.train.ale.sub)
-      
-      # ale on test set
-      data.test.ale.sub = FeatureEffect$new(predictor = predictor.test, feature = k, method = "ale")$results
-      data.test.ale.sub$iteration = i
-      data.test.ale.sub$grid = 1:nrow(data.test.ale.sub)
-      if (i == 1) data.test.ale = data.test.ale.sub
-      else data.test.ale = rbind(data.test.ale, data.test.ale.sub)
-      
-    }
-    # mean and sd of pdp - train
-    aggr.train.pdp = aggregate(data.train.pdp[,c(k, ".value")], list(data.train.pdp$grid), mean)
-    sd.train.pdp = aggregate(data.train.pdp[,".value"], list(data.train.pdp$grid), sd)[,2]
+    data.all = calculate_iterations(data.train, data.test, l, i, k, features, n_rep, test.sample, model.list)
     
-    # mean and sd of pdp - test
-    aggr.test.pdp = aggregate(data.test.pdp[,c(k, ".value")], list(data.test.pdp$grid), mean)
-    sd.test.pdp = aggregate(data.test.pdp[,".value"], list(data.test.pdp$grid), sd)[,2]
     
-    # mean and sd of ale - train
-    aggr.train.ale = aggregate(data.train.ale[,c(k, ".value")], list(data.train.ale$grid), mean)
-    sd.train.ale = aggregate(data.train.ale[,".value"], list(data.train.ale$grid), sd)[,2]
     
-    # mean and sd of ale - test
-    aggr.test.ale = aggregate(data.test.ale[,c(k, ".value")], list(data.test.ale$grid), mean)
-    sd.test.ale = aggregate(data.test.ale[,".value"], list(data.test.ale$grid), sd)[,2]
+    aggr.pdp = data_aggr(data.all[["pdp"]], k)
+    aggr.ale = data_aggr(data.all[["ale"]], k)
+    best.config.train = as.numeric(summary(data.all[["best.config"]][[1]])[c(2,4,5)])
+    best.config.test = as.numeric(summary(data.all[["best.config"]][[2]])[c(2,4,5)])
+    
+    
+    df_pdp = rbind(df_pdp, setnames(data.frame(k, l, aggr.pdp[[1]][[1]], aggr.pdp[[1]][[2]], aggr.pdp[[1]][[3]], 
+                                               aggr.pdp[[2]][[1]], aggr.pdp[[2]][[2]], aggr.pdp[[2]][[3]], best.config.train[1], best.config.train[2], best.config.train[3],
+                                                best.config.test[1], best.config.test[2], best.config.test[3]),
+                                    names(df_pdp)))
+    df_ale = rbind(df_ale, setnames(data.frame(k, l, aggr.ale[[1]][[1]], aggr.ale[[1]][[2]], aggr.ale[[1]][[3]], aggr.ale[[2]][[1]], aggr.ale[[2]][[2]], aggr.ale[[2]][[3]],
+                                               best.config.train[1], best.config.train[2], best.config.train[3],
+                                               best.config.test[1], best.config.test[2], best.config.test[3]), names(df_ale)))
+    # 
+    # # mean and sd of pdp - train
+    # aggr.train.pdp = aggregate(data.train.pdp[,c(k, ".value")], list(data.train.pdp$grid), mean)
+    # sd.train.pdp = aggregate(data.train.pdp[,".value"], list(data.train.pdp$grid), sd)[,2]
+    # 
+    # # mean and sd of pdp - test
+    # aggr.test.pdp = aggregate(data.test.pdp[,c(k, ".value")], list(data.test.pdp$grid), mean)
+    # sd.test.pdp = aggregate(data.test.pdp[,".value"], list(data.test.pdp$grid), sd)[,2]
+    # 
+    # # mean and sd of ale - train
+    # aggr.train.ale = aggregate(data.train.ale[,c(k, ".value")], list(data.train.ale$grid), mean)
+    # sd.train.ale = aggregate(data.train.ale[,".value"], list(data.train.ale$grid), sd)[,2]
+    # 
+    # # mean and sd of ale - test
+    # aggr.test.ale = aggregate(data.test.ale[,c(k, ".value")], list(data.test.ale$grid), mean)
+    # sd.test.ale = aggregate(data.test.ale[,".value"], list(data.test.ale$grid), sd)[,2]
     
     
     
     
-    df_pdp = rbind(df_pdp, setnames(data.frame(k, l, aggr.train.pdp[2], aggr.train.pdp[3], sd.train.pdp, aggr.test.pdp[2], aggr.test.pdp[3], sd.test.pdp), names(df_pdp)))
-    df_ale = rbind(df_ale, setnames(data.frame(k, l, aggr.train.ale[2], aggr.train.ale[3], sd.train.ale, aggr.test.ale[2], aggr.test.ale[3], sd.test.ale), names(df_ale)))
-    
+    # df_pdp = rbind(df_pdp, setnames(data.frame(k, l, aggr.train.pdp[2], aggr.train.pdp[3], sd.train.pdp, aggr.test.pdp[2], aggr.test.pdp[3], sd.test.pdp), names(df_pdp)))
+    # df_ale = rbind(df_ale, setnames(data.frame(k, l, aggr.train.ale[2], aggr.train.ale[3], sd.train.ale, aggr.test.ale[2], aggr.test.ale[3], sd.test.ale), names(df_ale)))
+    # 
   }
 }
 
 
+calculate_feature_effects <- function(predictor, feature, method, iteration){
+  effect = FeatureEffect$new(predictor = predictor, feature = feature, method = method)$results
+  effect$iteration = iteration
+  effect$grid = 1:nrow(effect)
+  return(effect)
+}
 
-df_pdp_5to9 = df_pdp
-df_ale_5to9 = df_ale
 
-save(df_pdp_1to4, df_pdp_5to9, df_ale_1to4, df_ale_5to9, file = "df_pdpale.Rdata")
+calculate_iterations <- function(data.train, data.test, extrapol, iteration, feat, features, n_rep, test.sample, model.list){
+  for (i in 1:n_rep) {
+    # define datasets and predictors for those - adjust with new data / model
+    data.train.sub = data.train[which(data.train$extrapol == l & data.train$iteration == i), c(1:(length(features) + 1))]
+    data.test.sub =  data.test[which(data.test$extrapol == l)[test.sample], c(1:(length(features) + 1))]
+    predictor = Predictor$new(model = model.list[[l]][[i]], data = data.train.sub)
+    predictor.test = Predictor$new(model = model.list[[l]][[i]], data = data.test.sub)
+    
+    # pdp on train set
+    data.train.pdp.sub = calculate_feature_effects(predictor, k, "pdp", i)
+    if (i == 1) data.train.pdp = data.train.pdp.sub
+    else data.train.pdp = rbind(data.train.pdp, data.train.pdp.sub)
+    
+    # pdp on test set
+    data.test.pdp.sub = calculate_feature_effects(predictor.test, k, "pdp", i)
+    if (i == 1) data.test.pdp = data.test.pdp.sub
+    else data.test.pdp = rbind(data.test.pdp, data.test.pdp.sub)
+    
+    # ale on train set
+    data.train.ale.sub = calculate_feature_effects(predictor, k, "ale", i)
+    if (i == 1) data.train.ale = data.train.ale.sub
+    else data.train.ale = rbind(data.train.ale, data.train.ale.sub)
+    
+    # ale on test set
+    data.test.ale.sub = calculate_feature_effects(predictor.test, k, "ale", i)
+    if (i == 1) data.test.ale = data.test.ale.sub
+    else data.test.ale = rbind(data.test.ale, data.test.ale.sub)
+    
+    # add for effect with model on test data
+    
+    # add feature importance
+    
+    
+    # best config - train
+    if (i == 1) best.config.train = data.train.sub[which.min(data.train.sub$y), k]
+    else best.config.train = c(best.config.train, data.train.sub[which.min(data.train.sub$y), k])
+    
+    # best config - text
+    if (i == 1) best.config.test = data.test.sub[which.min(data.test.sub$y), k]
+    else best.config.test = c(best.config.test, data.test.sub[which.min(data.test.sub$y), k])
+    
+  }
+  return(list("pdp" = list(data.train.pdp, data.test.pdp), "ale" = list(data.train.ale, data.test.ale), "best.config" = list(best.config.train, best.config.test)))
+}
+
+
+data_aggr = function(data, feat){
+  l.aggr = list()
+  for(m in length(data)){
+    data.sub = data[[m]]
+    mean = aggregate(data.sub[,c(k, ".value")], list(data.sub$grid), mean)
+    sd = aggregate(data.sub[,".value"], list(data.sub$grid), sd)[,2]
+    l.aggr[[m]] = list(mean[2], mean[3], sd)
+  }
+  return(l.aggr)
+}
 
 
 
-df_pdp_1to4 = df_pdp
-df_ale_1to4 = df_ale
+
+
 #test = get_objects(data_btsc, 1, 1)
 # 
 # 
