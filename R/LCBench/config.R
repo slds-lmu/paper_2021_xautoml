@@ -12,7 +12,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 60L
     # registry name for storing files on drive 
-		registry_name = "mlp_mlrmbo_test" 
+		registry_name = "mlp_mlrmbo_registry_temp" 
 	},
 	"REAL" = {
 		# overwrite registry?
@@ -20,7 +20,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
     # registry name for storing files on drive     
-		registry_name = "mlp_mlrmbo"
+		registry_name = "mlp_mlrmbo_registry"
 	}
 )
 
@@ -91,15 +91,25 @@ mlrmbo = function(data, job, instance, lambda) {
 	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
     end_t = Sys.time()
 
+    opdf = as.data.frame(res$opt.path)
+    dob.best = opdf[res$best.ind, ]$dob
+
+    models = res$models
+    
+    models = models[c(dob.best, length(models))]
+    res$final.opt.state = NULL
+
     return(list(
-      res = res,
-      runtime = as.integer(end_t) - as.integer(start_t)
-    ))
+    	opt.path = opdf, 
+    	models = models, 
+    	runtime = as.integer(end_t) - as.integer(start_t)
+    	)
+    )
 }
 
 
 ALGORITHMS = list(
-    mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 2)))
+    mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 2, 10)))
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)

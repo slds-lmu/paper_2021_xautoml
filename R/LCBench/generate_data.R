@@ -34,7 +34,7 @@ addExperiments(
 # --- 3. SUBMIT ON LRZ ---
 
 resources.serial = list(
-  walltime = 3600L * 24L * 1L, memory = 1024L * 2L,
+  walltime = 3600L * 24L * 4L, memory = 1024L * 2L,
   clusters = "serial", max.concurrent.jobs = 1000L # get name from lrz homepage)
 )
 
@@ -45,8 +45,8 @@ tab = summarizeExperiments(
 
 # start with some problems only
 tosubmit = ijoin(tab, findNotDone())
-tosubmit = tosubmit[, .SD[which.min(job.id)], by = list(problem, lambda)]
-tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 30L)
+# tosubmit = tosubmit[, .SD[which.min(job.id)], by = list(problem, lambda)]
+tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 30)
 
 submitJobs(tosubmit, resources = resources.serial)
 
@@ -101,5 +101,21 @@ for (prob in probs) {
 
   saveRDS(bla, file.path("data/runs/mlp", prob, "mlrmbo_30_repls.rds"))
 
+}
+
+
+
+# Because of the strange storing thing of par.set
+# we have 146GB for 1500 experiments
+# we will now reduce it
+
+results = list.files("mlp_mlrmbo_registry/results")
+dir.create("mlp_mlrmbo_registry/results2")
+
+for (i in seq_along(results)) {
+	newpath = file.path("mlp_mlrmbo_registry/results2/", results[i])
+	res = readRDS(file.path("mlp_mlrmbo_registry/results/", results[i]))
+	res = list(opt.path = as.data.frame(res$res$opt.path), models = res$res$models, runtime = res$runtime)	
+	saveRDS(res, newpath)
 }
 

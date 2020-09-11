@@ -18,9 +18,9 @@ switch(SETUP,
 		# overwrite registry?
 		OVERWRITE = FALSE
 		# termination criterion for each run
-		RUNTIME_MAX = 302400
+		RUNTIME_MAX = 60 * 60 * 12 # one run should last at most 12 hours
     # registry name for storing files on drive     
-		registry_name = "xgboost_registry"
+		registry_name = "xgboost_registry_hout"
 	}
 )
 
@@ -86,7 +86,7 @@ mlrmbo = function(data, job, instance,
 			objective = "binary:logistic", 
 			par.vals = x)		
 		task = instance$task
-	    resample(lrn, task, cv3, show.info = FALSE)$aggr
+	    resample(lrn, task, hout, show.info = FALSE)$aggr
 	  },
 	  par.set = ps,
 	  noisy = TRUE,
@@ -104,10 +104,21 @@ mlrmbo = function(data, job, instance,
 	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
     end_t = Sys.time()
 
+    opdf = as.data.frame(res$opt.path)
+    dob.best = opdf[res$best.ind, ]$dob
+
+    models = res$models
+    
+    models = models[c(dob.best, length(models))]
+    res$final.opt.state = NULL
+
     return(list(
-      res = res,
-      runtime = as.integer(end_t) - as.integer(start_t)
-    ))
+    	opt.path = opdf, 
+    	models = models, 
+    	runtime = as.integer(end_t) - as.integer(start_t)
+    	)
+    )
+
 }
 
 
@@ -128,7 +139,7 @@ randomsearch = function(data, job, instance
 			objective = "binary:logistic", 
 			par.vals = x)		
 		task = instance$task
-	    resample(lrn, task, cv3, show.info = FALSE)$aggr
+	    resample(lrn, task, hout, show.info = FALSE)$aggr
 	  },
 	  par.set = ps,
 	  noisy = TRUE,
@@ -138,7 +149,7 @@ randomsearch = function(data, job, instance
 
 	# filter for those that take too long...
 	if (getTaskId(instance$task) %in% c("numerai28.6")) {
-		n = 10^3
+		n = 10^3 / 2
 	} else {
 		n = 10^4
 	}
@@ -152,14 +163,18 @@ randomsearch = function(data, job, instance
 	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
     end_t = Sys.time()
 
+    opdf = as.data.frame(res$opt.path)
+
     return(list(
-      res = res,
-      runtime = as.integer(end_t) - as.integer(start_t)
-    ))
+    	opt.path = opdf, 
+    	models = NULL, 
+    	runtime = as.integer(end_t) - as.integer(start_t)
+    	)
+    )
 }
 
 ALGORITHMS = list(
-    mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 2))),
+    mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 2, 10))),
     randomsearch = list(fun = randomsearch, ades = data.table())
 )
 

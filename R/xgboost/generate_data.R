@@ -2,14 +2,14 @@
 
 library(batchtools)
 
-source("R/xgboost_config.R")
+source("R/xgboost/config.R")
 
 lapply(packages, require, character.only = TRUE)
 
 
 # --- 1. SETUP REGISTRY ---
 
-reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/xgboost_config.R")
+reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/xgboost/config.R")
 
 # --- 2. ADD PROBLEMS, ALGORITHMS, EXPERIMENTS ---
 
@@ -55,7 +55,7 @@ probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "
 tosubmit = tab[algorithm == "mlrmbo", ]
 tosubmit = tosubmit[problem %in% probs, ]
 # tosubmit = tosubmit[, .SD[which.min(job.id)], by = c("problem")]
-# tosubmit = ijoin(tosubmit, findNotDone())
+tosubmit = ijoin(tosubmit, findDone())
 
 tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10L)
 
@@ -69,27 +69,16 @@ tosubmit = ijoin(tosubmit, findNotDone())
 submitJobs(tosubmit, resources = resources.serial)
 
 
+toreduce = ijoin(tab, findDone())
+
+probs = unique(toreduce$problem)
+
 for (prob in probs) {
 
-  toreduce = tab[problem %in% prob, ]
+  toreduce = toreduce[toreduce$problem == prob, ]
   toreduce = ijoin(toreduce, findDone())
 
-  res = reduceResultsDataTable(toreduce, function(x) {
-    
-    # for reasons of storage, we just store the model that led to the best observation
-    # and the last model 
-    # the model that led to the best iteration: 
-    # 
-    opdf = as.data.frame(x$res$opt.path)
-    dob.best = opdf[x$res$best.ind, ]$dob
-
-    models = x$res$models
-    
-    x$res$models = models[c(dob.best, length(models))]
-    x$res$final.opt.state = NULL
-    x
-  })
-
+  res = reduceResultsDataTable(toreduce)
   res = ijoin(tab, res)
 
   if (!dir.exists(file.path("data/runs/xgboost/", prob))) {

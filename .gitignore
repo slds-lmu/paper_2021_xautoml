@@ -1,0 +1,4 @@
+data/*
+cached/*
+*registry*
+*.rds
