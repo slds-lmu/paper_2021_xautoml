@@ -154,7 +154,7 @@ randomsearch = function(data, job, instance
 	lrn = makeLearner("regr.km", covtype = "matern3_2", optim.method = "gen", nugget.estim = TRUE, jitter = TRUE)
 
 	n = 5000
-	train_size = c(200, 250)
+	train_size = c(200, 2000)
 	test_ids = seq(max(train_size) + 1, n)
 
 	set.seed(1234)
@@ -180,6 +180,7 @@ randomsearch = function(data, job, instance
 
     return(list(
     	train_data = train_data,
+    	test_data = des[test_ids, ],
     	models = models, 
     	perf = do.call(rbind, perf)
     	)

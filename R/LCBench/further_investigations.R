@@ -48,7 +48,7 @@ time_est = data.frame(size = c(100, 200, 500, 1000, 2000, 3000))
 time_est$time = NA
 time_est$mae = NA
 
-test_ids = seq(2001, 5000)
+test_ids = seq(2501, 5000)
 
 lrn = makeLearner("regr.km", predict.type = "se", par.vals = list(covtype="matern3_2", nugget.estim = TRUE, optim.method="gen"))
 
@@ -58,7 +58,7 @@ for (i in seq_len(nrow(time_est))) {
 	bla = train(lrn, task)
 	time_est[i, ]$time = bla$time
 
-	pred = predict(bla, newdata = des[test_ids, ])
+	pred = predict(bla, newdata = des[seq_len(time_est[i, ]$size), ])
 
 	time_est[i, ]$mae = performance(pred, mae)
 
