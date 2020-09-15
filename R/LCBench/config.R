@@ -122,6 +122,7 @@ randomsearch = function(data, job, instance
     # algorithm-specific parameters
     ) {
 
+	lcbench_data = read.csv2(file.path(instance, "lcbench2000.csv"), sep = ",")
 	surrogate_data = readRDS(file.path(instance, "surrogate.rds"))
 	surr_val = surrogate_data$result[[1]]$model_val_balanced_acc[[1]]
 	surr_test = surrogate_data$result[[1]]$model_test_balanced_acc[[1]]
@@ -179,10 +180,12 @@ randomsearch = function(data, job, instance
 	rownames(perf) = c("model200", "model2000")
 
     return(list(
-    	train_data = train_data,
-    	test_data = des[test_ids, ],
-    	models = models, 
-    	perf = do.call(rbind, perf)
+    	lcbench_data = lcbench_data, 
+    	surrogate_on_lcbench_GT = surr_val,
+    	train_data_randomLHS = train_data,
+    	test_data_randomLHS = des[test_ids, ],
+    	models_on_randomLHS = models, 
+    	perf_on_test_data_randomLHS = perf
     	)
     )
 }
