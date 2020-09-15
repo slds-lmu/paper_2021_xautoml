@@ -98,6 +98,7 @@ mlrmbo = function(data, job, instance,
 	ctrl = setMBOControlTermination(ctrl, max.evals = 200, time.budget = RUNTIME_MAX)
 	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
+	set.seed(1234L)
 	des = generateDesign(n = 2 * length(ps$pars), par.set = ps, fun = lhs::randomLHS)
 
     start_t = Sys.time()

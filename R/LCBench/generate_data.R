@@ -42,17 +42,31 @@ reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem", "lambda"))
 
-probs_sub = c("blood-transfusion-service-center", "car", "kc1", "fabert", "numerai28.6", "c1", "Fashion-MNIST")
+probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "sylvine")
 
-
-# start with some problems only
-tosubmit = ijoin(tab, findNotDone())
-# tosubmit = tosubmit[, .SD[which.min(job.id)], by = list(problem, lambda)]
-tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 120)
-
+# Submit MBO runs 
+tosubmit = tab[problem %in% probs, ]
+tosubmit = tosubmit[algorithm == "mlrmbo", ]
+tosubmit = ijoin(tosubmit, findNotStarted())
+# Chunking because each experiment only needs ~ 45 minutes
+tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 30)
 submitJobs(tosubmit, resources = resources.serial)
 
-probs = unique(tab$problem)
+# Submit randomsearch runs 
+tosubmit = tab[problem %in% probs, ]
+tosubmit = tosubmit[algorithm == "randomsearch", ]
+tosubmit = ijoin(tosubmit, findNotDone())
+tosubmit = tosubmit[ ,.SD[which.min(job.id)], by = problem]
+
+# Chunking because each experiment only needs ~ 10 minutes
+tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10)
+submitJobs(tosubmit, resources = resources.serial)
+
+
+# --- 4. Reduce problems 
+
+# We do this problem-wise 
+probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "sylvine")
 
 for (prob in probs) {
 
@@ -66,5 +80,5 @@ for (prob in probs) {
     dir.create(file.path("data/runs/mlp/", prob))
   }
 
-  saveRDS(res, file.path("data/runs/mlp", prob, "mlrmbo_30_repls.rds"))
+  saveRDS(res, file.path("data/runs/mlp", prob, "mlrmbo30_vs_randomLHS.rds"))
 }
