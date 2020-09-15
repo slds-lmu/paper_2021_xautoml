@@ -42,11 +42,13 @@ reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem", "lambda"))
 
+probs_sub = c("blood-transfusion-service-center", "car", "kc1", "fabert", "numerai28.6", "c1", "Fashion-MNIST")
+
 
 # start with some problems only
 tosubmit = ijoin(tab, findNotDone())
 # tosubmit = tosubmit[, .SD[which.min(job.id)], by = list(problem, lambda)]
-tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 30)
+tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 120)
 
 submitJobs(tosubmit, resources = resources.serial)
 
