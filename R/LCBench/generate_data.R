@@ -57,24 +57,7 @@ for (prob in probs) {
   toreduce = tab[problem %in% prob, ]
   toreduce = ijoin(toreduce, findDone())
 
-  res = reduceResultsDataTable(toreduce, function(x) {
-    
-    # for reasons of storage, we just store the model that led to the best observation
-    # and the last model 
-    # the model that led to the best iteration: 
-    # 
-    opdf = as.data.frame(x$res$opt.path)
-    dob.best = opdf[x$res$best.ind, ]$dob
-
-    models = x$res$models
-    
-    models = models[c(dob.best, length(models))]
-    # x$res$opt.path = opdf
-    # x$res$final.opt.state = NULL
-    # x$res$opt.path$par.set = NULL
-    list(opt.path = opdf, models = models, runtime = x$runtime)
-  })
-
+  res = reduceResultsDataTable(toreduce)
   res = ijoin(tab, res)
 
   if (!dir.exists(file.path("data/runs/mlp/", prob))) {
@@ -83,39 +66,3 @@ for (prob in probs) {
 
   saveRDS(res, file.path("data/runs/mlp", prob, "mlrmbo_30_repls.rds"))
 }
-
-bla = readRDS("data/runs/mlp/vehicle/mlrmbo_30_repls.rds")[1, ]$result[[1]]$res
-bla = bla$opt.path$par.set
-
-for (i in 1:length(bla)) {
-	print(names(bla)[i])
-	saveRDS(bla[[i]], paste("data/runs/mlp/vehicle/test/", names(bla)[i], ".rds", sep = ""))
-}
-
-for (prob in probs) {
-
-  bla = readRDS(file.path("data/runs/mlp", prob, "mlrmbo_30_repls.rds"))
-  bla[1, ]$result[[1]]$res$opt.path$par.set = NULL
-  bla[2, ]$result[[1]]$res$opt.path$par.set = NULL
-  bla[3, ]$result[[1]]$res$opt.path$par.set = NULL
-
-  saveRDS(bla, file.path("data/runs/mlp", prob, "mlrmbo_30_repls.rds"))
-
-}
-
-
-
-# Because of the strange storing thing of par.set
-# we have 146GB for 1500 experiments
-# we will now reduce it
-
-results = list.files("mlp_mlrmbo_registry/results")
-dir.create("mlp_mlrmbo_registry/results2")
-
-for (i in seq_along(results)) {
-	newpath = file.path("mlp_mlrmbo_registry/results2/", results[i])
-	res = readRDS(file.path("mlp_mlrmbo_registry/results/", results[i]))
-	res = list(opt.path = as.data.frame(res$res$opt.path), models = res$res$models, runtime = res$runtime)	
-	saveRDS(res, newpath)
-}
-

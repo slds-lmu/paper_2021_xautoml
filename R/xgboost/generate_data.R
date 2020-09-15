@@ -75,7 +75,7 @@ probs = unique(toreduce$problem)
 
 for (prob in probs) {
 
-  toreduce = toreduce[toreduce$problem == prob, ]
+  toreduce = toreduce[problem == prob, ]
   toreduce = ijoin(toreduce, findDone())
 
   res = reduceResultsDataTable(toreduce)
@@ -86,4 +86,26 @@ for (prob in probs) {
   }
 
   saveRDS(res, file.path("data/runs/xgboost", prob, "mlrmbo_30_repls.rds"))
+}
+
+
+
+
+toreduce = ijoin(tab, findDone())
+toreduce = toreduce[algorithm == "randomsearch", ]
+
+probs = unique(toreduce$problem)
+
+for (prob in probs) {
+
+  tored = toreduce[problem == prob, ]
+
+  res = reduceResultsDataTable(tored)
+  res = ijoin(tab, res)
+
+  if (!dir.exists(file.path("data/runs/xgboost/", prob))) {
+    dir.create(file.path("data/runs/xgboost/", prob))
+  }
+
+  saveRDS(res, file.path("data/runs/xgboost", prob, "random_lhs.rds"))
 }

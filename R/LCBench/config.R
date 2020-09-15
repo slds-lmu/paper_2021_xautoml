@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "REAL"
+SETUP = "TEST"
 
 switch(SETUP, 
 	"TEST" = {
@@ -85,26 +85,28 @@ mlrmbo = function(data, job, instance, lambda) {
 	ctrl = setMBOControlTermination(ctrl, max.evals = 200, time.budget = RUNTIME_MAX)
 	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
+	set.seed(1234)
 	des = generateDesign(n = 2 * length(ps$pars), par.set = ps, fun = lhs::randomLHS)
 
-    start_t = Sys.time()
-	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
-    end_t = Sys.time()
+ #    start_t = Sys.time()
+	# res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
+ #    end_t = Sys.time()
 
-    opdf = as.data.frame(res$opt.path)
-    dob.best = opdf[res$best.ind, ]$dob
+ #    opdf = as.data.frame(res$opt.path)
+ #    dob.best = opdf[res$best.ind, ]$dob
 
-    models = res$models
+ #    models = res$models
     
-    models = models[c(dob.best, length(models))]
-    res$final.opt.state = NULL
+ #    models = models[c(dob.best, length(models))]
+ #    res$final.opt.state = NULL
 
-    return(list(
-    	opt.path = opdf, 
-    	models = models, 
-    	runtime = as.integer(end_t) - as.integer(start_t)
-    	)
-    )
+ #    return(list(
+ #    	opt.path = opdf, 
+ #    	models = models, 
+ #    	runtime = as.integer(end_t) - as.integer(start_t)
+ #    	)
+ #    )
+	return(des)
 }
 
 
