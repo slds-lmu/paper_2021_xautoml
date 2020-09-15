@@ -31,8 +31,6 @@ addExperiments(
   repls = 1L)
 
 
-
-
 # --- 3. SUBMIT ON LRZ ---
 resources.serial = list(
   walltime = 3600L * 24L * 4L, memory = 1024L * 2L,
