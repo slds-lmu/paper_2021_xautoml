@@ -77,12 +77,12 @@ mlrmbo = function(data, job, instance, lambda) {
 		y = predict(surr_val, newdata = x)$data$response
 
 		attr(y, "extras") = list(test_performance = predict(surr_test, newdata = x)$data$response)
-		return(y)
+		return(1 - y / 100)
 	  },
 	  par.set = ps,
 	  noisy = TRUE,
 	  has.simple.signature = FALSE,
-	  minimize = FALSE
+	  minimize = TRUE
 	)
 
 	ctrl = makeMBOControl(store.model.at = 1:200)
