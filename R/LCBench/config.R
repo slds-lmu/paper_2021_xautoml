@@ -152,30 +152,37 @@ randomsearch = function(data, job, instance
 	  minimize = TRUE
 	)
 
-	lrn = makeLearner("regr.km", covtype = "matern3_2", optim.method = "gen", nugget.estim = TRUE, jitter = TRUE)
-
 	n = 5000
 	train_size = c(200, 2000)
 	test_ids = seq(max(train_size) + 1, n)
 
 	set.seed(1234)
-	des = sampleValues(par = ps, n = n, trafo = TRUE)
-	y = lapply(des, obj)
-	des = lapply(des, unlist)
-	des = do.call(rbind, des)
-	des = as.data.frame(des)
-	des$y = unlist(y)
-	
-	train_data = lapply(train_size, function(i) des[seq_len(i), ])
-	tasks = lapply(train_data, function(data) makeRegrTask(data = data, target = "y"))
-	models = lapply(tasks, function(task) train(lrn, task))
+	des = generateDesign(n = n, par.set = ps, fun = lhs::randomLHS)
 
-	perf = mapply(function(mod, task) {
-		pred_train = predict(mod, task)
-		pred_test = predict(mod, newdata = des[test_ids, ])
+	ctrl = makeMBOControl(store.model.at = seq_len(train_size[2]))
+	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
+
+	# could write a lapply here, but I guess its fine
+	ctrl_1 = setMBOControlTermination(ctrl, max.evals = train_size[1] - 1, time.budget = RUNTIME_MAX)
+	ctrl_2 = setMBOControlTermination(ctrl, max.evals = train_size[2] - 1, time.budget = RUNTIME_MAX)
+
+	mbo_1 = mbo(obj, design = des[seq_len(train_size[1]), ], control = ctrl_1, show.info = TRUE)
+	mbo_2 = mbo(obj, design = des[seq_len(train_size[2]), ], control = ctrl_2, show.info = TRUE)
+
+	train_data = list(as.data.frame(mbo_1$opt.path), as.data.frame(mbo_2$opt.path))
+	models = list(mbo_1$models[[1]], mbo_2$models[[1]])
+
+	perf = mapply(function(mod, td) {
+		df_train = td[, c(getParamIds(getParamSet(obj)), "y")]
+		df_test = des[test_ids, ]
+		df_test$y = apply(df_test, 1, function(x) obj(trafoValue(as.list(x), par = ps)))
+
+		pred_train = predict(mod, newdata = df_train)
+		pred_test = predict(mod, newdata = df_test)
 
 		c(mae_train = performance(pred_train, mae), mae_test = performance(pred_test, mae))
-	}, models, tasks)
+	}, models, train_data)
+
 	perf = as.data.frame(t(perf))
 	rownames(perf) = c("model200", "model2000")
 
@@ -196,6 +203,3 @@ ALGORITHMS = list(
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)
-
-
-

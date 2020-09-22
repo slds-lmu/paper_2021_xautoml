@@ -47,7 +47,7 @@ probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "
 # Submit MBO runs 
 tosubmit = tab[problem %in% probs, ]
 tosubmit = tosubmit[algorithm == "mlrmbo", ]
-tosubmit = ijoin(tosubmit, findNotStarted())
+tosubmit = ijoin(tosubmit, findNotDone())
 # Chunking because each experiment only needs ~ 45 minutes
 tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 30)
 submitJobs(tosubmit, resources = resources.serial)
