@@ -160,7 +160,7 @@ randomsearch = function(data, job, instance
 	des = generateDesign(n = n, par.set = ps, fun = lhs::randomLHS)
 
 	ctrl = makeMBOControl(store.model.at = seq_len(train_size[2]))
-	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
+	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB())
 
 	# could write a lapply here, but I guess its fine
 	ctrl_1 = setMBOControlTermination(ctrl, max.evals = train_size[1] - 1, time.budget = RUNTIME_MAX)
