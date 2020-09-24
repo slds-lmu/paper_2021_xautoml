@@ -60,7 +60,7 @@ tosubmit = tosubmit[ ,.SD[which.min(job.id)], by = problem]
 
 # Chunking because each experiment only needs ~ 10 minutes
 tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10)
-submitJobs(tosubmit, resources = resources.serial)
+submitJobs(tosubmit[2:5,], resources = resources.serial)
 
 
 # --- 4. Reduce problems 

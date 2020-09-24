@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "REAL"
+SETUP = "TEST"
 
 switch(SETUP, 
 	"TEST" = {
@@ -172,10 +172,11 @@ randomsearch = function(data, job, instance
 	train_data = list(as.data.frame(mbo_1$opt.path), as.data.frame(mbo_2$opt.path))
 	models = list(mbo_1$models[[1]], mbo_2$models[[1]])
 
+	df_test = des[test_ids, ]
+	df_test$y = apply(df_test, 1, function(x) obj(trafoValue(as.list(x), par = ps)))
+
 	perf = mapply(function(mod, td) {
 		df_train = td[, c(getParamIds(getParamSet(obj)), "y")]
-		df_test = des[test_ids, ]
-		df_test$y = apply(df_test, 1, function(x) obj(trafoValue(as.list(x), par = ps)))
 
 		pred_train = predict(mod, newdata = df_train)
 		pred_test = predict(mod, newdata = df_test)
@@ -190,7 +191,7 @@ randomsearch = function(data, job, instance
     	lcbench_data = lcbench_data, 
     	surrogate_on_lcbench_GT = surr_val,
     	train_data_randomLHS = train_data,
-    	test_data_randomLHS = des[test_ids, ],
+    	test_data_randomLHS = df_test,
     	models_on_randomLHS = models, 
     	perf_on_test_data_randomLHS = perf
     	)
