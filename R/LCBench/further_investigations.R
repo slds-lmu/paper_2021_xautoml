@@ -63,3 +63,14 @@ for (i in seq_len(nrow(time_est))) {
 	time_est[i, ]$mae = performance(pred, mae)
 
 }
+
+
+
+# Sanity check of data 
+
+data = readRDS("data/runs/mlp/kc1/mlrmbo30_vs_randomLHS.rds")
+
+data1 = data[1, ]$result[[1]]$opt.path[, 1:7]
+data2 = data[2, ]$result[[1]]$opt.path[, 1:7]
+
+merge(data1, data2)

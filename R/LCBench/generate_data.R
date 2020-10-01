@@ -60,7 +60,7 @@ tosubmit = tosubmit[ ,.SD[which.min(job.id)], by = problem]
 
 # Chunking because each experiment only needs ~ 10 minutes
 tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10)
-submitJobs(tosubmit[2:5,], resources = resources.serial)
+submitJobs(tosubmit, resources = resources.serial)
 
 
 # --- 4. Reduce problems 
@@ -75,10 +75,11 @@ for (prob in probs) {
 
   res = reduceResultsDataTable(toreduce)
   res = ijoin(tab, res)
+  res = res[c(1:120, 123), ]
 
-  if (!dir.exists(file.path("data/runs/mlp/", prob))) {
-    dir.create(file.path("data/runs/mlp/", prob))
+  if (!dir.exists(file.path("data/runs/mlp_new/", prob))) {
+    dir.create(file.path("data/runs/mlp_new/", prob))
   }
 
-  saveRDS(res, file.path("data/runs/mlp", prob, "mlrmbo30_vs_randomLHS.rds"))
+  saveRDS(res, file.path("data/runs/mlp_new", prob, "mlrmbo30_vs_randomLHS.rds"))
 }

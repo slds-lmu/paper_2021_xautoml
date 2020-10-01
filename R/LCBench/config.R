@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "TEST"
+SETUP = "REAL"
 
 switch(SETUP, 
 	"TEST" = {
@@ -156,7 +156,7 @@ randomsearch = function(data, job, instance
 	train_size = c(200, 2000)
 	test_ids = seq(max(train_size) + 1, n)
 
-	set.seed(1234)
+	# set.seed(1234)
 	des = generateDesign(n = n, par.set = ps, fun = lhs::randomLHS)
 
 	ctrl = makeMBOControl(store.model.at = seq_len(train_size[2]))
