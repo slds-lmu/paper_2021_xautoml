@@ -75,7 +75,6 @@ for (prob in probs) {
 
   res = reduceResultsDataTable(toreduce)
   res = ijoin(tab, res)
-  res = res[c(1:120, 123), ]
 
   if (!dir.exists(file.path("data/runs/mlp_new/", prob))) {
     dir.create(file.path("data/runs/mlp_new/", prob))
@@ -83,3 +82,4 @@ for (prob in probs) {
 
   saveRDS(res, file.path("data/runs/mlp_new", prob, "mlrmbo30_vs_randomLHS.rds"))
 }
+

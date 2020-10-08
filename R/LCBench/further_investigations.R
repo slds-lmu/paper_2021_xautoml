@@ -73,4 +73,7 @@ data = readRDS("data/runs/mlp/kc1/mlrmbo30_vs_randomLHS.rds")
 data1 = data[1, ]$result[[1]]$opt.path[, 1:7]
 data2 = data[2, ]$result[[1]]$opt.path[, 1:7]
 
+data1 = data[1, ]$result[[1]]$models[[1]]$learner.model
+data2 = data[2, ]$result[[1]]$models[[1]]$learner.model
+
 merge(data1, data2)
