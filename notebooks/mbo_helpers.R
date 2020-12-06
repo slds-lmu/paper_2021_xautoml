@@ -1,5 +1,8 @@
-createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_size = NULL) {
+createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_size = NULL, seed = NULL) {
         
+    if (!is.null(seed))
+        set.seed(seed)
+
     ps = getParamSet(fun)
 
     if (type == "LHS") {

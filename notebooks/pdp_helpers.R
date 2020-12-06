@@ -27,8 +27,7 @@ predicted_marginal_effect = function(model, feature, data) {
     return(res)
 }
 
-
-conditional_mean_sdmarginal_effect_sd_over_mean = function(model, feature, data, method) {
+marginal_effect_sd_over_mean = function(model, feature, data, method) {
 
 	# Different methods to estimate the standard deviation are implemented
 	# - pdp_sd: 			partial dependence over the posterior standard deviation 1 / n * sum s(x_S, x_C) is computed 
@@ -152,7 +151,7 @@ conditional_mean_sd = function(model, feature, data, method) {
 	    effects_1 = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp")
 
 	    # Get (#2) (i.e., the variance over the ice curves for one grid point)
-	    predictor = Predictor$new(model = mod, data = data[c("x1", "x2")])
+	    predictor = Predictor$new(model = model, data = data[c("x1", "x2")])
 	    effects_2 = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice")
 	    df = setDT(effects_2$results)
 	    df = df[.type == "ice", .(.value= sd(.value)^2), by = feature]
