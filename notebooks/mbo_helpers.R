@@ -1,7 +1,5 @@
 createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_size = NULL, seed = NULL) {
         
-    if (!is.null(seed))
-        set.seed(seed)
 
     ps = getParamSet(fun)
 
@@ -16,6 +14,9 @@ createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_s
 
     if (is.null(init_size))
         init_size = 4 * getParamLengths(ps)
+
+    if (!is.null(seed))
+        set.seed(seed)
         
     des = generateDesign(n = init_size, par.set = ps, fun = lhs::randomLHS)
     
