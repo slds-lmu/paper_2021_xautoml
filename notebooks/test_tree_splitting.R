@@ -14,13 +14,13 @@ SS_L1 = function(y, x, requires.x = FALSE, ...) {
   sum(t(abs(t(y) - ypred)))
 }
 
-
+#createMBOrun(fun = obj, max.evals = 50, lambda = 0.1, store_path = "/synthetic/mlrmbo_run_StyblinkskiTang3D_01.rds", seed = 1234)
 
 # read in models and prepare 
 runs = list(MBO_0.1 = readRDS("synthetic/mlrmbo_run_StyblinkskiTang3D_01.rds"), 
             MBO_1 = readRDS("synthetic/mlrmbo_run_StyblinkskiTang3D_1.rds"),
-            # MBO_2 = readRDS("../synthetic/mlrmbo_run_StyblinkskiTang3D_2.rds"),
-            MBO_10 = readRDS("synthetic/mlrmbo_run_StyblinkskiTang3D_10.rds")# , 
+            MBO_2 = readRDS("synthetic/mlrmbo_run_StyblinkskiTang3D_2.rds")
+            #MBO_10 = readRDS("synthetic/mlrmbo_run_StyblinkskiTang3D_10.rds")# , 
             # LHS = readRDS("../synthetic/mlrmbo_run_StyblinkskiTang3D_lhs.rds")
 )
 
@@ -43,7 +43,7 @@ obj1 = makeSingleObjectiveFunction(name = "StyblinkskiTang3D", fn = function(x) 
 par.set = makeParamSet(makeNumericVectorParam(id = "x", len = 2, lower = - 5, upper = 5))
 )
 ps = getParamSet(obj1)
-df = generateDesign(par.set = ps, n = 100, fun = lhs::randomLHS)
+df = generateDesign(par.set = ps, n = 1000, fun = lhs::randomLHS)
 
 
 
@@ -63,4 +63,4 @@ df$.id = seq_len(nrow(df))
 
 
 # compute tree
-compute_tree(effect = effect, df = df, objective = SS_L1, n.splits = 2)
+res = compute_tree(effect = effect, df = df, objective = SS_L1, n.splits = 2)

@@ -36,7 +36,7 @@ compute_tree = function(effect, df, objective, n.splits) {
       splitfeat = node$splitfeat
       
       # Split Left child
-      idx_sub = which(effects[, splitfeat] <= splitpoint)
+      idx_sub = which(effects[which(effects$.id %in% node$idx$index[[1]]), splitfeat] <= splitpoint)
       Y = tidyr::spread(effects[idx_sub, c(ice_feat, ".value", ".type", ".id")], ice_feat, .value)
       Y = as.data.frame(Y)
       Y = Y[, setdiff(colnames(Y), c(".type", ".id"))]
@@ -47,7 +47,7 @@ compute_tree = function(effect, df, objective, n.splits) {
       X = df[idx$index[[1]], ]
       X = X[, c(split_feats), drop = FALSE]
       
-      split = split_parent_node(Y = Y, X = X, objective = objective, optimizer = find_best_binary_split)
+      split = split_parent_node(Y = Y, X = X, objective = objective, optimizer = find_best_binary_split, min.node.size = 10)
       split = split[best.split == TRUE, ]
       
       node_idx = generate_node_index(Y = Y, X = X, result = split)
@@ -58,12 +58,12 @@ compute_tree = function(effect, df, objective, n.splits) {
       splitpoint_new = split$split.points[[1]]
       splitfeat_new = split$feature
       
-      results[[depth + 1]] = c(results[[depth + 1]], list(splitfeat = splitfeat_new, splitpoint = splitpoint_new, idx = node_idx))
+      results[[depth + 1]][[1]] = list(splitfeat = splitfeat_new, splitpoint = splitpoint_new, idx = node_idx)
       
       
       
       # Split Right child 
-      idx_sub = which(effects[, splitfeat] > splitpoint)
+      idx_sub = which(effects[which(effects$.id %in% node$idx$index[[2]]), splitfeat] > splitpoint)
       Y = tidyr::spread(effects[idx_sub, c(ice_feat, ".value", ".type", ".id")], ice_feat, .value)
       Y = as.data.frame(Y)
       Y = Y[, setdiff(colnames(Y), c(".type", ".id"))]
@@ -71,7 +71,7 @@ compute_tree = function(effect, df, objective, n.splits) {
       X = df[idx$index[[2]], ]
       X = X[, c(split_feats), drop = FALSE]
       
-      split = split_parent_node(Y = Y, X = X, objective = objective, optimizer = find_best_binary_split)
+      split = split_parent_node(Y = Y, X = X, objective = objective, optimizer = find_best_binary_split, min.node.size = 10)
       split = split[best.split == TRUE, ]
       
       node_idx = generate_node_index(Y = Y, X = X, result = split)
@@ -82,7 +82,7 @@ compute_tree = function(effect, df, objective, n.splits) {
       splitpoint_new = split$split.points[[1]]
       splitfeat_new = split$feature
       
-      results[[depth + 1]] = c(results[[depth + 1]], list(splitfeat = splitfeat_new, splitpoint = splitpoint_new, idx = node_idx))
+      results[[depth + 1]][[2]] = list(results[[depth + 1]], list(splitfeat = splitfeat_new, splitpoint = splitpoint_new, idx = node_idx))
     }
   }
   
