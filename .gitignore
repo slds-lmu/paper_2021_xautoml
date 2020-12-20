@@ -2,3 +2,6 @@ data/*
 cached/*
 *registry*
 *.rds
+*.png
+
+*.ipynb_checkpoints*
