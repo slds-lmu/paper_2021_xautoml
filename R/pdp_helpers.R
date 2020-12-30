@@ -18,7 +18,7 @@ marginal_effect = function(obj, feature, data) {
 
 predicted_marginal_effect = function(model, feature, data) {
                                 
-    predictor = Predictor$new(model = model, data = data[c("x1", "x2")])
+    predictor = Predictor$new(model = model, data = data)
     effects = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp")
     
     res = effects$results
@@ -55,7 +55,7 @@ marginal_effect_sd_over_mean = function(model, feature, data, method) {
 	      return(pp)
 	    }
 
-	    predictor = Predictor$new(mymodel, data = data[c("x1", "x2")], predict.function = predict.mymodel)
+	    predictor = Predictor$new(mymodel, data = data, predict.function = predict.mymodel)
 	    
 	    effects = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp")
 
@@ -69,7 +69,7 @@ marginal_effect_sd_over_mean = function(model, feature, data, method) {
     }
 
     if (method %in% c("pdp_var_gp")) {
-
+    
     	# Extract the grid points from the above PDP, such that we make sure we take the same grid points
     	gridvalues = res[, feature]
 
@@ -82,8 +82,8 @@ marginal_effect_sd_over_mean = function(model, feature, data, method) {
 	    res = lapply(gridvalues, function(gv) {
 
 	    	# Create vector along the gridvalue gv by combining it with the "test dataset"
-	    	gg = merge(gv, data[, setdiff(c("x1", "x2"), feature)])
-	    	names(gg) = c("x1", "x2")
+	    	gg = merge(gv, data[, setdiff(colnames(data), feature)])
+	    	names(gg) = c(feature, setdiff(colnames(data), feature))
 
 	    	# Compute the posterior mean and covariance of the predictions at points in gg
 	        pred = predict(object = km, newdata = gg, type = "SK", cov.compute = TRUE)

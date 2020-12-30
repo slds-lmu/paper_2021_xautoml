@@ -58,8 +58,8 @@ Node <- R6Class("Node", list(
 
         tryCatch({
           split = split_parent_node(Y = self$Y[self$subset.idx, ], X = self$X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
-          self$split.feature = split$feature
-          self$split.value = unlist(split$split.points)
+          self$split.feature = split$feature[split$best.split]
+          self$split.value = unlist(split$split.points[split$best.split])
         }, 
         error = function(cond) {
           message(paste0("Min.node.size is reached in node ", self$id))
@@ -96,7 +96,6 @@ Node <- R6Class("Node", list(
 
 
 compute_tree = function(effect, objective, n.split) {
-  
   input.data = compute_data_for_ice_splitting(effect)
 
   # Initialize the parent node of the tree
@@ -145,7 +144,7 @@ order_nodes_by_objective = function(tree, depth) {
 }
 
 plot_pdp_for_node = function(node, model, pdp.feature, objective.groundtruth = NULL, method = "pdp_var_gp") {
-    data = effect$predictor$data$X[node$subset.idx, ]
+  data = effect$predictor$data$X[node$subset.idx, ]
     data = as.data.frame(data)
     pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, method = method)
     pp$lower = pp$mean - 2 * pp$sd
@@ -158,7 +157,7 @@ plot_pdp_for_node = function(node, model, pdp.feature, objective.groundtruth = N
 
       pp.gt = marginal_effect(objective.groundtruth, pdp.feature, data)
       
-      p = p + geom_line(data = pp.gt, aes(x = x1, y = mean))                        
+      p = p + geom_line(data = pp.gt, aes_string(x = pdp.feature, y = "mean"))                        
 
     }
 
