@@ -28,7 +28,7 @@ predicted_marginal_effect = function(model, feature, data) {
 }
 
 marginal_effect_sd_over_mean = function(model, feature, data, method) {
-
+ # browser()
 	# Different methods to estimate the standard deviation are implemented
 	# - pdp_sd: 			partial dependence over the posterior standard deviation 1 / n * sum s(x_S, x_C) is computed 
 	# - pdp_var: 			partial dependence over the posterior variance 1 / n * sum s^2(x_S, x_C); 

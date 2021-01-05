@@ -96,6 +96,7 @@ Node <- R6Class("Node", list(
 
 
 compute_tree = function(effect, objective, n.split) {
+  #browser()
   input.data = compute_data_for_ice_splitting(effect)
 
   # Initialize the parent node of the tree
@@ -143,7 +144,7 @@ order_nodes_by_objective = function(tree, depth) {
   order(get_objective_values(tree, depth = depth))
 }
 
-plot_pdp_for_node = function(node, model, pdp.feature, objective.groundtruth = NULL, method = "pdp_var_gp") {
+plot_pdp_for_node = function(effect, node, model, pdp.feature, objective.groundtruth = NULL, method = "pdp_var_gp") {
   data = effect$predictor$data$X[node$subset.idx, ]
     data = as.data.frame(data)
     pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, method = method)
@@ -154,8 +155,15 @@ plot_pdp_for_node = function(node, model, pdp.feature, objective.groundtruth = N
     p = ggplot() + theme_bw()
 
     if (!is.null(objective.groundtruth)) {
+      data.groundtruth = data
+      data.groundtruth$batch_size = 2^data.groundtruth$batch_size
+      data.groundtruth$max_units = 2^data.groundtruth$max_units
 
-      pp.gt = marginal_effect(objective.groundtruth, pdp.feature, data)
+      pp.gt = predicted_marginal_effect(objective.groundtruth, pdp.feature, data.groundtruth)
+      if (pdp.feature %in% c("batch_size", "max_units")) {
+        pp.gt[pdp.feature] = log(pp.gt[pdp.feature], 2)
+      }
+      pp.gt$mean = (100-pp.gt$mean)/100
       
       p = p + geom_line(data = pp.gt, aes_string(x = pdp.feature, y = "mean"))                        
 
