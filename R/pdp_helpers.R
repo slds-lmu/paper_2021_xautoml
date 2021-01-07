@@ -84,6 +84,7 @@ marginal_effect_sd_over_mean = function(model, feature, data, method, alpha = 0.
 	    	# Create vector along the gridvalue gv by combining it with the "test dataset"
 	    	gg = merge(gv, data[, setdiff(colnames(data), feature)])
 	    	names(gg) = c(feature, setdiff(colnames(data), feature))
+	    	gg = gg[, names(data)]
 
 	    	# Compute the posterior mean and covariance of the predictions at points in gg
 	        pred = predict(object = km, newdata = gg, type = "SK", cov.compute = TRUE)
@@ -93,9 +94,9 @@ marginal_effect_sd_over_mean = function(model, feature, data, method, alpha = 0.
 	      	# To boil everything down we have to compute now the mean of this vector, as well as the 
 	      	# variance over the mean
 	      	mean_pdp = mean(m)
-	      	var_pdp = 1 / nrow(gg)^2 * sum(C) # see Wikipedia "Variance#Sum_of_correlated_variables#Matrix notation" 
+	      	sd_pdp = 1 / nrow(gg) * sqrt(sum(C)) # see Wikipedia "Variance#Sum_of_correlated_variables#Matrix notation" 
 
-	        df = data.frame(gv, mean = mean_pdp, sd = sqrt(var_pdp))
+	        df = data.frame(gv, mean = mean_pdp, sd = sd_pdp)
 	        names(df)[1] = feature
 
 	        return(df)
@@ -108,7 +109,7 @@ marginal_effect_sd_over_mean = function(model, feature, data, method, alpha = 0.
 
 		# We compute the grid we want to draw the GP's over
 		# combine grid points with test data 	    
-	    grid = merge(res[, feature], data[, setdiff(x = c("x1", "x2"), y = feature)])
+	    grid = merge(res[, feature], data[, setdiff(x = names(data), y = feature)])
 	    names(grid) = c("x1", "x2")
 
 	    # Sample 10000 realizations 

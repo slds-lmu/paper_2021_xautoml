@@ -41,18 +41,10 @@ tree = compute_tree(model = model,
             testdata = df, 
             feature = feature, 
             objective = "SS_L1",
-            n.split = 2)
+            n.split = 3)
 
-p1 = plot_pdp_for_node(node = tree[[1]][[1]],
-                  testdata = df, 
-                  model = model, 
-                  pdp.feature = feature,
-                  objective.gt = obj,
-                  method = "pdp_var_gp",
-                  alpha = 0.01
-                  ) + ylim(c(-100, 200))
 
-p2 = plot_tree_pdps(tree = tree, 
+p = plot_tree_pdps(tree = tree, 
                 df = df, 
                 model = model, 
                 pdp.feature = feature, 
@@ -62,8 +54,17 @@ p2 = plot_tree_pdps(tree = tree,
                 best_candidate = best_candidate
                 )
 
-grid.arrange(p1, p2, nrow = 2)
+# Check manually wether uncertainty reduced along the path
+# Attention: this needs to be manually changed depending to in which node the optimum is  
+sd_node_1_1 = cbind(node = "1_1", compute_pdp_for_node(node = tree[[1]][[1]], testdata = df, model = model, pdp.feature = feature, alpha = 0.01)$pdp_data)
+sd_node_2_1 = cbind(node = "2_1", compute_pdp_for_node(node = tree[[2]][[1]], testdata = df, model = model, pdp.feature = feature, alpha = 0.01)$pdp_data)
+sd_node_3_1 = cbind(node = "3_1", compute_pdp_for_node(node = tree[[3]][[1]], testdata = df, model = model, pdp.feature = feature, alpha = 0.01)$pdp_data)
+sd_node_4_1 = cbind(node = "4_1", compute_pdp_for_node(node = tree[[4]][[1]], testdata = df, model = model, pdp.feature = feature, alpha = 0.01)$pdp_data)
 
+sd_node = rbind(sd_node_1_1, sd_node_2_1, sd_node_3_1, sd_node_4_1)
+
+p = ggplot(data = sd_node, aes(x = x3, y = sd, colour = node))
+p + geom_line()
 
 ## -- MLP 
 
@@ -97,11 +98,10 @@ p1 = plot_pdp_for_node(node = tree[[1]][[1]],
                   testdata = df, 
                   model = model, 
                   pdp.feature = feature,
-                  objective.gt = obj,
+                  # objective.gt = obj,
                   method = "pdp_var_gp",
                   alpha = 0.01
-                  ) + ylim(c(-100, 200))
-
+                  ) 
 
 p2 = plot_tree_pdps(tree = tree, 
                 df = df, 
