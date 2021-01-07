@@ -48,7 +48,7 @@ Node <- R6Class("Node", list(
       self$stop.criterion.met = FALSE
     },
 
-    computeSplit = function(objective, optimizer, min.split = 10) {
+    computeSplit = function(objective, optimizer, min.split = 1) {
       
       if (length(self$subset.idx) < min.split) {
         self$stop.criterion.met = TRUE
