@@ -1,12 +1,12 @@
 marginal_effect = function(obj, feature, data) {
         
-    mymodel = makeS3Obj("mymodel", fun = function(data) return(apply(data[, c("x1", "x2")], 1, obj)))
+    mymodel = makeS3Obj("mymodel", fun = function(data) return(apply(data[, model$features], 1, obj)))
                         
     predict.mymodel = function(object, newdata) {
         object$fun(newdata)
     }
                         
-    predictor = Predictor$new(model = mymodel, data = data[c("x1", "x2")], predict.function = predict.mymodel)
+    predictor = Predictor$new(model = mymodel, data = data[, model$features], predict.function = predict.mymodel)
     effects = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp")
 
     res = effects$results

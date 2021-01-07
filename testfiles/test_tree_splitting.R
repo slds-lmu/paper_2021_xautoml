@@ -7,74 +7,95 @@ library(customtrees)
 library(Rfast)
 library(ggplot2)
 library(gridExtra)
+library(partykit)
+library(ggparty)
 
-source("R/pdp_helpers.R")
-source("R/tree_splitting.R")
-source("R/benchmarks/synthetic/mbo_helpers.R")
+theme_set(theme_bw())
 
-# Objective function which was initially analyzed
-obj = makeSingleObjectiveFunction(name = "StyblinkskiTang3D", fn = function(x) {
-    1 / 2 * sum(x^4 - 16 * x^2 + 5 * x)
-  }, 
-  par.set = makeParamSet(makeNumericVectorParam(id = "x", len = 2, lower = - 5, upper = 5))
-)
-ps = getParamSet(obj)
+source("R/pdp_helpers.R") # helper functions to plot a partial dependence plot
+source("R/tree_splitting.R") # helper functions to perform the tree splitting 
+source("R/mlp_helper.r")
 
-# Read in models for interpretation
-runs = list(MBO_0.1 = readRDS("data/runs/synthetic/mlrmbo_run_StyblinkskiTang3D_01.rds"), 
-            MBO_1 = readRDS("data/runs/synthetic/mlrmbo_run_StyblinkskiTang3D_1.rds"),
-            MBO_2 = readRDS("data/runs/synthetic/mlrmbo_run_StyblinkskiTang3D_2.rds")
-        )
 
-models = extract_models(runs)
-names(models) = get_types_of_runs(runs)
+# -- SYNTHETIC FUNCTIONS 
+id = "StyblinskiTang"
+dimension = 5
+lambda = 2
+path = file.path("data/runs/synthetic", id, paste0(dimension, "D"))
 
-# Choose one model to interpret
-model_for_interpretation = "MBO_1"
-model = models[[model_for_interpretation]]
-feat = "x1"
+# Get the objective
+obj = readRDS(file.path(path, "objective.rds"))
+ps = readRDS(file.path(path, "ps.rds"))
+ps_ids = getParamIds(ps, repeated = TRUE, with.nr = TRUE)
 
-# Testdata 
+# Get the run we are interested in 
+run = readRDS(file.path(path, paste0("mlrmbo_run_lambda_", lambda, ".rds")))
+model = run$models[[length(run$models)]]
+best_candidate = as.data.frame(run$opt.path)[run$best.ind, ]
+
+# Select the feature that we want to interpret
+feature = "x3"
 df = generateDesign(par.set = ps, n = 1000, fun = lhs::randomLHS)
 
-mymodel = makeS3Obj("mymodel", fun = function() return(model))
-predict.mymodel = function(object, newdata) {
-  pred = predict(object$fun(), newdata = newdata)
-  pp = getPredictionSE(pred)
-  return(pp)
-}
-predictor = Predictor$new(model = mymodel, data = df[c("x1", "x2")], predict.function = predict.mymodel)
-effect = FeatureEffect$new(predictor = predictor, feature = feat, method = "ice")
+tree = compute_tree(model = model,
+            testdata = df, 
+            feature = feature, 
+            objective = "SS_L1",
+            n.split = 2)
+
+plot_tree_pdps(tree = tree, 
+                df = df, 
+                model = model, 
+                pdp.feature = feature, 
+                obj = obj, 
+                method = "pdp_var_gp", 
+                alpha = 0.05 / 20, 
+                best_candidate = best_candidate
+                )
 
 
-# define objective
-SS_L1 = function(y, x, requires.x = FALSE, ...) {
-  require(Rfast)
-  ypred = Rfast::colMedians(as.matrix(y))
-  sum(t(abs(t(y) - ypred)))
-}
+
+## -- MLP 
+
+path = "data/runs/mlp/"
+
+dataset = "phoneme"
+data = get_data(path, folder_mlp)
+data = data[[paste0("data_", dataset)]]
+
+lambda = 1
+iteration = 2
+
+run = data[[paste0("mbo_lambda", lambda)]][[iteration]]
+model = run$models[[length(run$models)]]
+best_candidate = run$opt.path[which.min(run$opt.path$y), ]
+
+# store this in a better format
+ps =  readRDS("data/runs/mlp/ps.rds")
+ps_ids = getParamIds(ps, repeated = TRUE, with.nr = TRUE)
+
+feature = "learning_rate"
+df = generateDesign(par.set = ps, n = 1000, fun = lhs::randomLHS)
+
+tree = compute_tree(model = model,
+            testdata = df, 
+            feature = feature, 
+            objective = "SS_L1",
+            n.split = 2)
+
+plot_tree_pdps(tree = tree, 
+                df = df, 
+                model = model, 
+                pdp.feature = feature, 
+                # obj = obj, 
+                method = "pdp_var_gp", 
+                alpha = 0.05 / 20, 
+                best_candidate = best_candidate
+                )
 
 
-# Compute tree
-tree = compute_tree(effect, SS_L1, n.split = 3)
-
-# see how many points go into each child 
-get_size_of_tree(tree)
-get_objective_values(tree)
-
-# Plot node 2 in depth 3
-
-depth = 4
-node = tree[[depth]][[3]]
-plot_pdp_for_node(node, model, feat, objective.groundtruth = NULL)
-
-lapply(seq_len(length(tree) - 1), function(depth) {
-  nodes = tree[[depth]]
-  plist = lapply(nodes, function(node) {
-    plot_pdp_for_node(node, model, feat, objective.groundtruth = NULL)
-  })
-  do.call(grid.arrange, c(plist, nrow = 1))
-})
 
 
-# TODO: Some pruning
+
+
+

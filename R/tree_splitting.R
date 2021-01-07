@@ -95,8 +95,29 @@ Node <- R6Class("Node", list(
 
 
 
-compute_tree = function(effect, objective, n.split) {
-  input.data = compute_data_for_ice_splitting(effect)
+compute_tree = function(model, testdata, feature, objective, n.split) {
+
+  if (objective == "SS_L1") {
+    mymodel = makeS3Obj("mymodel", fun = function() return(model))
+    predict.mymodel = function(object, newdata) {
+      pred = predict(object$fun(), newdata = newdata)
+      pp = getPredictionSE(pred)
+      return(pp)
+    }
+    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
+    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice")
+
+    # define objective
+    split.objective = function(y, x, requires.x = FALSE, ...) {
+      require(Rfast)
+      ypred = Rfast::colMedians(as.matrix(y))
+      sum(t(abs(t(y) - ypred)))
+    } 
+
+    input.data = compute_data_for_ice_splitting(effect)
+  } else {
+    stop(paste("Objective", objective, "is not supported."))
+  } 
 
   # Initialize the parent node of the tree
   parent = Node$new(id = 0, depth = 0, X = input.data$X, Y = input.data$Y, subset.idx = seq_len(nrow(input.data$X)))
@@ -115,7 +136,7 @@ compute_tree = function(effect, objective, n.split) {
       node.to.split = leaves[[node.idx]]
 
       if (!is.null(node.to.split)) {
-        node.to.split$computeSplit(objective, find_best_binary_split)
+        node.to.split$computeSplit(split.objective, find_best_binary_split)
         node.to.split$computeChildren()
 
         tree[[depth + 1]] = c(tree[[depth + 1]], node.to.split$children)        
@@ -124,7 +145,7 @@ compute_tree = function(effect, objective, n.split) {
       }
     }
   }
-  return(tree)
+  return(list(tree = tree, effect = effect))
 }
 
 
@@ -143,29 +164,206 @@ order_nodes_by_objective = function(tree, depth) {
   order(get_objective_values(tree, depth = depth))
 }
 
-plot_pdp_for_node = function(node, model, pdp.feature, objective.groundtruth = NULL, method = "pdp_var_gp") {
-  data = effect$predictor$data$X[node$subset.idx, ]
+compute_pdp_for_node = function(node, effect, model, pdp.feature, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
+
+    data = effect$predictor$data$X[node$subset.idx, ]
     data = as.data.frame(data)
     pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, method = method)
-    pp$lower = pp$mean - 2 * pp$sd
-    pp$upper = pp$mean + 2 * pp$sd
+    
+    q = qnorm(1 - alpha / 2)
+    pp$lower = pp$mean - q * pp$sd
+    pp$upper = pp$mean + q * pp$sd 
 
+
+    pp.gt = NULL
+    if (!is.null(objective.gt))
+      pp.gt = marginal_effect(objective.gt, pdp.feature, data)
+
+    return(list(pdp_data = pp, pdp_groundtruth_data = pp.gt))
+}
+
+
+
+plot_pdp_for_node = function(node, model, pdp.feature, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
+ 
+    data = compute_pdp_for_node(node, model, pdp.feature, objective.gt, method, alpha = alpha)
+
+    pp = data$pdp_data
+    pp.gt = data$pdp_groundtruth_data
 
     p = ggplot() + theme_bw()
 
-    if (!is.null(objective.groundtruth)) {
-
-      pp.gt = marginal_effect(objective.groundtruth, pdp.feature, data)
+    if (!is.null(pp.gt)) {
       
       p = p + geom_line(data = pp.gt, aes_string(x = pdp.feature, y = "mean"))                        
 
     }
 
-  p = p + geom_ribbon(data = pp, aes_string(x = pdp.feature, ymin = "lower", ymax = "upper"), alpha = 0.2)
-  p = p + geom_line(data = pp, aes_string(x = pdp.feature, y = "mean"), colour = "blue") 
-  p = p + ggtitle(paste0("Obj. value: ", round(node$objective.value), "; Size = ", length(node$subset.idx)))
+    p = p + geom_ribbon(data = pp, aes_string(x = pdp.feature, ymin = "lower", ymax = "upper"), alpha = 0.2)
+    p = p + geom_line(data = pp, aes_string(x = pdp.feature, y = "mean"), colour = "blue") 
+    p = p + ggtitle(paste0("Obj. value: ", round(node$objective.value), "; Size = ", length(node$subset.idx)))
 
   return(p)
+}
+
+plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, method = "pdp_var_gp", alpha = 0.05, best_candidate = NULL) {
+
+    # tree object
+    # df:  the tree was used to compute the pdps
+    # model: Model that we want to visualize
+    # obj: ground-truth objective if available
+    # depth: at which depth do we want to "draw" the PDP? 
+    
+    effect = tree$effect
+    tree = tree$tree
+
+    depth = length(tree)
+    
+    # First, build a tree in partykit
+    # Create partysplit objects for all splits that are performed
+    splits = lapply(seq_len(depth - 1), function(i) {
+      lapply(seq_len(length(tree[[i]])), function(j) {
+          node = tree[[i]][[j]]
+          partysplit(which(node$split.feature == ps_ids), breaks = round(node$split.value, 4))
+        })
+    })
+    
+    d = depth - 1
+    
+    ids = 2^(d):(2^(d + 1) - 1)
+
+    # Create the leave nodes as partynodes (placeholder)
+    nodes = lapply(ids, function(i) {
+        partynode(id = i)
+    })
+
+    # Now, recursively build the tree
+    for (d in seq(depth - 2, 0)) {
+        ids = 2^(d):(2^(d + 1) - 1)
+
+        # transfer all into nodes and use the correct children
+        nodes = lapply(seq_along(ids), function(i) {
+            partynode(i, split = splits[[d + 1]][[i]], kids = 
+                nodes[(2 * i - 1):(2 * i)]
+            )
+        })
+    }
+
+    ntest = nrow(df)
+
+    if (!is.null(best_candidate))
+      df = rbind(df, best_candidate[, names(df)]) 
+
+    # Modify the test data (this is just a dirty workaround)
+    df$sd = NA
+    df$mean = NA
+    df$xs = NA
+    df$lower = NA
+    df$upper = NA
+    df$gt = NA
+    df$best = NA
+    df$subset_idx = seq_len(nrow(df))
+
+    py = party(node = nodes[[1]], data = df)
+    
+    # Create a ggparty object
+    ggpobj = ggparty(py)
+    
+    stack = tree[[1]]
+    i = 1
+
+    # Now create the data for the pdps 
+
+    while (length(stack) > 0) {
+
+      # check the first element of the stack      
+      node = stack[[1]]
+      
+      plotdata = compute_pdp_for_node(node = node, 
+        effect = effect,
+        model = model, 
+        pdp.feature = pdp.feature, 
+        objective.gt = obj, 
+        method = method, 
+        alpha = alpha)
+
+      pp = plotdata$pdp_data
+      pp.gt = plotdata$pdp_groundtruth_data
+
+      tl = length(ggpobj$data[, paste0("nodedata_", pdp.feature)][[i]])
+
+      if (tl > nrow(pp)) {
+        ggpobj$data$nodedata_xs[[i]] = c(pp[ , pdp.feature], rep(NA, tl - nrow(pp)))
+        ggpobj$data$nodedata_mean[[i]] = c(pp[ , "mean"], rep(NA, tl - nrow(pp)))
+        ggpobj$data$nodedata_lower[[i]] = c(pp[ , "lower"], rep(NA, tl - nrow(pp)))
+        ggpobj$data$nodedata_upper[[i]] = c(pp[ , "upper"], rep(NA, tl - nrow(pp)))
+
+        if (!is.null(obj))
+            ggpobj$data$nodedata_gt[[i]] = c(pp.gt$mean, rep(NA, tl - nrow(pp)))
+      
+        if (!is.null(best_candidate) && (ntest + 1) %in% ggpobj$data$nodedata_subset_idx[[i]]) {
+            ggpobj$data$nodedata_best[[i]][1] = best_candidate[, pdp.feature][1]            
+        }
+
+      }
+
+      # remove it from the stack
+      stack[[1]] = NULL
+
+      # extend the stack
+      stack = c(node$children$left.child, node$children$right.child, stack)
+
+      i = i + 1
+    }
+
+    p = ggpobj +
+      geom_edge() +
+      geom_edge_label() +
+      geom_node_splitvar() 
+
+    if (!is.null(best_candidate) && !is.null(obj)) {
+
+    p = p + geom_node_plot(gglist = list(
+                                   geom_ribbon(aes(x = xs, ymin = lower, ymax = upper), alpha = 0.2), 
+                                   geom_line(aes(x = xs, y = mean), colour = "blue"), 
+                                   geom_line(aes(x = xs, y = gt)), 
+                                   geom_vline(aes(xintercept = best), colour = "orange", lty = 2)
+                                  )
+                    )
+    } 
+
+    if (is.null(best_candidate) && !is.null(obj) ) {
+
+      p = p + geom_node_plot(gglist = list(
+                                     geom_ribbon(aes(x = xs, ymin = lower, ymax = upper), alpha = 0.2), 
+                                     geom_line(aes(x = xs, y = mean), colour = "blue"), 
+                                     geom_line(aes(x = xs, y = gt))
+                                    )
+                      )
+      } 
+
+
+    if (!is.null(best_candidate) && is.null(obj) ) {
+
+      p = p + geom_node_plot(gglist = list(
+                                     geom_ribbon(aes(x = xs, ymin = lower, ymax = upper), alpha = 0.2), 
+                                     geom_line(aes(x = xs, y = mean), colour = "blue"), 
+                                      geom_vline(aes(xintercept = best), colour = "orange", lty = 2)
+                                    )
+                      )
+      } 
+
+
+     if (is.null(best_candidate) && is.null(obj) ) {
+
+      p = p + geom_node_plot(gglist = list(
+                                     geom_ribbon(aes(x = xs, ymin = lower, ymax = upper), alpha = 0.2), 
+                                     geom_line(aes(x = xs, y = mean), colour = "blue")
+                                    )
+                      )
+      }       
+
+    return(p)
 }
 
 
@@ -197,3 +395,39 @@ compute_data_for_ice_splitting = function(effect) {
   return(list(X = X, Y = Y))
 }
 
+
+classify_candidate = function(tree, point) {
+
+  # point must be a data.frame
+
+  continue = TRUE
+
+  stack = tree[[1]]
+
+  is_contained = c(TRUE)
+
+  while (continue) {
+
+    # check if 
+
+  }
+
+
+
+  idx = c(1)
+
+  while (continue) {
+    if (point[, node$split.feature] <= node$split.value) {
+      node = node$children$left.child
+      idx = c(idx, 2 * idx[length(idx)])
+    } else {
+      node = node$children$right.child     
+      idx = c(idx, 2 * idx[length(idx)] + 1)
+    } 
+
+    if (length(node$children) == 0)
+      continue = FALSE
+  }
+
+  return(idx)
+}
