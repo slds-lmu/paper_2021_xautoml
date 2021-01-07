@@ -145,7 +145,7 @@ compute_tree = function(model, testdata, feature, objective, n.split) {
       }
     }
   }
-  return(list(tree = tree, effect = effect))
+  return(tree)
 }
 
 
@@ -164,9 +164,9 @@ order_nodes_by_objective = function(tree, depth) {
   order(get_objective_values(tree, depth = depth))
 }
 
-compute_pdp_for_node = function(node, effect, model, pdp.feature, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
+compute_pdp_for_node = function(node, testdata, model, pdp.feature, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
 
-    data = effect$predictor$data$X[node$subset.idx, ]
+    data = testdata[node$subset.idx, ]
     data = as.data.frame(data)
     pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, method = method)
     
@@ -184,9 +184,9 @@ compute_pdp_for_node = function(node, effect, model, pdp.feature, objective.gt =
 
 
 
-plot_pdp_for_node = function(node, model, pdp.feature, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
+plot_pdp_for_node = function(node, testdata, model, pdp.feature, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
  
-    data = compute_pdp_for_node(node, model, pdp.feature, objective.gt, method, alpha = alpha)
+    data = compute_pdp_for_node(node, testdata, model, pdp.feature, objective.gt, method, alpha = alpha)
 
     pp = data$pdp_data
     pp.gt = data$pdp_groundtruth_data
@@ -214,9 +214,6 @@ plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, metho
     # obj: ground-truth objective if available
     # depth: at which depth do we want to "draw" the PDP? 
     
-    effect = tree$effect
-    tree = tree$tree
-
     depth = length(tree)
     
     # First, build a tree in partykit
@@ -251,6 +248,8 @@ plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, metho
 
     ntest = nrow(df)
 
+    df_orig = df
+
     if (!is.null(best_candidate))
       df = rbind(df, best_candidate[, names(df)]) 
 
@@ -280,7 +279,7 @@ plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, metho
       node = stack[[1]]
       
       plotdata = compute_pdp_for_node(node = node, 
-        effect = effect,
+        testdata = df_orig,
         model = model, 
         pdp.feature = pdp.feature, 
         objective.gt = obj, 
@@ -385,7 +384,7 @@ compute_data_for_ice_splitting = function(effect) {
   df.sub = df[, c(".id", split.feats), with = FALSE]  
   
   effects = data.table(effect$results)
-  #effects = merge(effects, df.sub, by = c(".id"))
+  #effects = merge(effeccompute_datats, df.sub, by = c(".id"))
 
   Y = tidyr::spread(effects, ice.feat, .value)
   Y = Y[, setdiff(colnames(Y), c(".type", ".id")), with = FALSE]
@@ -396,38 +395,3 @@ compute_data_for_ice_splitting = function(effect) {
 }
 
 
-classify_candidate = function(tree, point) {
-
-  # point must be a data.frame
-
-  continue = TRUE
-
-  stack = tree[[1]]
-
-  is_contained = c(TRUE)
-
-  while (continue) {
-
-    # check if 
-
-  }
-
-
-
-  idx = c(1)
-
-  while (continue) {
-    if (point[, node$split.feature] <= node$split.value) {
-      node = node$children$left.child
-      idx = c(idx, 2 * idx[length(idx)])
-    } else {
-      node = node$children$right.child     
-      idx = c(idx, 2 * idx[length(idx)] + 1)
-    } 
-
-    if (length(node$children) == 0)
-      continue = FALSE
-  }
-
-  return(idx)
-}

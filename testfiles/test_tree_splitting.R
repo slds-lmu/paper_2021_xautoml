@@ -43,25 +43,35 @@ tree = compute_tree(model = model,
             objective = "SS_L1",
             n.split = 2)
 
-plot_tree_pdps(tree = tree, 
+p1 = plot_pdp_for_node(node = tree[[1]][[1]],
+                  testdata = df, 
+                  model = model, 
+                  pdp.feature = feature,
+                  objective.gt = obj,
+                  method = "pdp_var_gp",
+                  alpha = 0.01
+                  ) + ylim(c(-100, 200))
+
+p2 = plot_tree_pdps(tree = tree, 
                 df = df, 
                 model = model, 
                 pdp.feature = feature, 
                 obj = obj, 
                 method = "pdp_var_gp", 
-                alpha = 0.05 / 20, 
+                alpha = 0.01, 
                 best_candidate = best_candidate
                 )
 
+grid.arrange(p1, p2, nrow = 2)
 
 
 ## -- MLP 
 
 path = "data/runs/mlp/"
 
-dataset = "phoneme"
+folder_mlp = "phoneme"
 data = get_data(path, folder_mlp)
-data = data[[paste0("data_", dataset)]]
+data = data[[paste0("data_", folder_mlp)]]
 
 lambda = 1
 iteration = 2
@@ -83,16 +93,66 @@ tree = compute_tree(model = model,
             objective = "SS_L1",
             n.split = 2)
 
+p1 = plot_pdp_for_node(node = tree[[1]][[1]],
+                  testdata = df, 
+                  model = model, 
+                  pdp.feature = feature,
+                  objective.gt = obj,
+                  method = "pdp_var_gp",
+                  alpha = 0.01
+                  ) + ylim(c(-100, 200))
+
+
+p2 = plot_tree_pdps(tree = tree, 
+                df = df, 
+                model = model, 
+                pdp.feature = feature, 
+                # obj = obj, 
+                method = "pdp_var_gp", 
+                alpha = 0.05, 
+                best_candidate = best_candidate
+                )
+
+
+
+## -- MLP 
+
+path = "data/runs/xgboost/"
+
+dataset = "phoneme"
+data = readRDS(file.path(path, dataset, "mlrmbo_30_repls.rds"))
+
+lambda = 1
+iteration = 2
+
+idx = which(data$lambda == lambda)[iteration]
+
+run = data[idx, ]$result[[1]]
+model = run$models[[length(run$models)]]
+best_candidate = run$opt.path[which.min(run$opt.path$y), ]
+
+# store this in a better format
+ps =  readRDS(file.path(path, "ps.rds"))
+ps_ids = getParamIds(ps, repeated = TRUE, with.nr = TRUE)
+
+feature = "max_depth"
+df = generateDesign(par.set = ps, n = 1000, fun = lhs::randomLHS)
+
+tree = compute_tree(model = model,
+            testdata = df, 
+            feature = feature, 
+            objective = "SS_L1",
+            n.split = 3)
+
 plot_tree_pdps(tree = tree, 
                 df = df, 
                 model = model, 
                 pdp.feature = feature, 
                 # obj = obj, 
                 method = "pdp_var_gp", 
-                alpha = 0.05 / 20, 
+                alpha = 0.05, 
                 best_candidate = best_candidate
                 )
-
 
 
 
