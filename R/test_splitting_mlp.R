@@ -17,7 +17,7 @@ source("R/benchmarks/synthetic/mbo_helpers.R")
 
 
 # Examples with phoneme data
-path = "data/mlp/"
+path = "data/runs/mlp/"
 folder_mlp = "phoneme"
 data = get_data(path, folder_mlp)
 data = data[["data_phoneme"]]
