@@ -31,7 +31,7 @@ SS_area = function(y, x, requires.x = FALSE, ...) {
 
 
 
-get_eval_measures = function(effect, node, model, pdp.feature, objective.groundtruth = NULL, method = "pdp_var_gp") {
+get_eval_measures = function(effect, node, model, pdp.feature, optimum, objective.groundtruth = NULL, method = "pdp_var_gp") {
   data = effect$predictor$data$X[node$subset.idx, ]
   data = as.data.frame(data)
   pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, method = method)
@@ -44,8 +44,16 @@ get_eval_measures = function(effect, node, model, pdp.feature, objective.groundt
   gt.diff.abs = sum(abs(pp.gt$mean-pp$mean))
   gt.diff.sd = sd(pp.gt$mean-pp$mean)
   
+  # values around optimum
+  pp["dist.opt"] = abs(pp[,pdp.feature]-optimum)
+  pp.opt = pp[order(pp$dist.opt),][1:3,] # adjust number of grid points to evaluate?
   
-  return(list("conf.diff" = conf.diff, "gt.diff.abs" = gt.diff.abs, "gt.diff.sd" = gt.diff.sd))
+  conf.diff.opt = sum(pp.opt$upper-pp.opt$lower)
+  gt.diff.abs.opt = sum(abs(pp.gt$mean[which(pp.opt[,pdp.feature] %in% pp.gt[,pdp.feature])]-pp.opt$mean))
+  gt.diff.sd.opt = sd(pp.gt$mean[which(pp.opt[,pdp.feature] %in% pp.gt[,pdp.feature])]-pp.opt$mean)
+  
+  return(list("conf.diff" = conf.diff, "gt.diff.abs" = gt.diff.abs, "gt.diff.sd" = gt.diff.sd,
+              "conf.diff.opt" = conf.diff.opt, "gt.diff.abs.opt" = gt.diff.abs.opt, "gt.diff.sd.opt" = gt.diff.sd.opt))
 }
 
 find_optimal_node = function(tree, optimum){
