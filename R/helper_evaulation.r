@@ -38,7 +38,7 @@ get_eval_measures = function(effect, node, model, pdp.feature, optimum, objectiv
   pp$lower = pp$mean - 2 * pp$sd
   pp$upper = pp$mean + 2 * pp$sd
   
-  pp.gt = marginal_effect(objective.groundtruth, pdp.feature, data)
+  pp.gt = marginal_effect(objective.groundtruth, pdp.feature, data, model)
   
   conf.diff = sum(pp$upper-pp$lower)
   gt.diff.abs = sum(abs(pp.gt$mean-pp$mean))

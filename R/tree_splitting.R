@@ -48,7 +48,7 @@ Node <- R6Class("Node", list(
       self$stop.criterion.met = FALSE
     },
 
-    computeSplit = function(objective, optimizer, min.split = 1) {
+    computeSplit = function(objective, optimizer, min.split = 10) {
       
       if (length(self$subset.idx) < min.split) {
         self$stop.criterion.met = TRUE
@@ -115,7 +115,48 @@ compute_tree = function(model, testdata, feature, objective, n.split) {
     } 
 
     input.data = compute_data_for_ice_splitting(effect)
-  } else {
+  } 
+  else if (objective == "SS_L2") {
+    mymodel = makeS3Obj("mymodel", fun = function() return(model))
+    predict.mymodel = function(object, newdata) {
+      pred = predict(object$fun(), newdata = newdata)
+      pp = getPredictionSE(pred)
+      return(pp)
+    }
+    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
+    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice")
+    
+    # define objective
+    split.objective = function(y, x, requires.x = FALSE, ...) {
+      
+      ypred = colMeans(as.matrix(y))
+      sum(t((t(y) - ypred)^2))
+    } 
+    
+    input.data = compute_data_for_ice_splitting(effect)
+  }
+  
+  else if (objective == "SS_area") {
+    mymodel = makeS3Obj("mymodel", fun = function() return(model))
+    predict.mymodel = function(object, newdata) {
+      pred = predict(object$fun(), newdata = newdata)
+      pp = getPredictionSE(pred)
+      return(pp)
+    }
+    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
+    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice")
+    
+    # define objective
+    split.objective = function(y, x, requires.x = FALSE, ...) {
+      row_means = rowMeans(y) # area of individual ice curves
+      ypred = mean(row_means) # area of pdp
+      sum((row_means - ypred)^2)
+    } 
+    
+    input.data = compute_data_for_ice_splitting(effect)
+  }
+  
+  else {
     stop(paste("Objective", objective, "is not supported."))
   } 
 
@@ -177,7 +218,7 @@ compute_pdp_for_node = function(node, testdata, model, pdp.feature, objective.gt
 
     pp.gt = NULL
     if (!is.null(objective.gt))
-      pp.gt = marginal_effect(objective.gt, pdp.feature, data)
+      pp.gt = marginal_effect(objective.gt, pdp.feature, data, model)
 
     return(list(pdp_data = pp, pdp_groundtruth_data = pp.gt))
 }

@@ -1,4 +1,4 @@
-marginal_effect = function(obj, feature, data) {
+marginal_effect = function(obj, feature, data, model) {
         
     mymodel = makeS3Obj("mymodel", fun = function(data) return(apply(data[, model$features], 1, obj)))
                         
