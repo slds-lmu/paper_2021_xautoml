@@ -22,7 +22,7 @@ source("R/benchmarks/synthetic/mbo_helpers.R")
 path = "data/StyblinskiTang/"
 folder = list.files(path)
 set.seed(123)
-data = get_all(path, folder, 1000)
+data = get_all(path, folder, 500)
 
 
 feat = "x3"
@@ -70,14 +70,16 @@ lapply(seq_len(length(tree) ), function(depth) {
 
 
 
-test = function(){
+test = function(n.split, data){
   df = data.frame("id" = NA, "data" = NA, "model" = NA, "objective" = NA, "feature" = NA, "par.conf" = NA, "par.gt.abs" = NA, "par.gt.sd" = NA,
                   "opt.conf" = NA, "opt.gt.abs" = NA, "opt.gt.sd" = NA,
                   "par.conf.opt" = NA, "par.gt.abs.opt" = NA, "par.gt.sd.opt" = NA,
                   "opt.conf.opt" = NA, "opt.gt.abs.opt" = NA, "opt.gt.sd.opt" = NA)
   
   id = 1
-  objectives = c("SS_L1", "SS_L2", "SS_area")
+  grid.size = 20
+  objectives = c("SS_L1", "SS_area", "SS_sd", "SS_area_med", "SS_area_quant")
+  
  #browser() 
 for(i in 1:length(data)){
   testdata = data[[i]]$testset
@@ -88,20 +90,20 @@ for(i in 1:length(data)){
   
   for(j in 1:length(data[[i]]$model)){
     model = data[[i]]$model[[j]]
-    
+    #browser()
     for(k in objectives){
       
       for(f in features){
-        effect = get_ice_curves(model = model, data = testdata, feature = f, mean = FALSE) # variante mit mean = TRUE testen
-        tree = compute_tree(model, testdata, f, objective = k, n.split = 2) # n.splits anpassen
+        effect = get_ice_curves(model = model, data = testdata, feature = f, grid.size = grid.size, mean = FALSE) # variante mit mean = TRUE testen
+        tree = compute_tree(model, testdata, f, objective = k, n.split = n.split, grid.size = grid.size, addMean = FALSE) # n.splits anpassen
         
         # parent node
         node = tree[[1]][[1]]
-        eval.par = get_eval_measures(effect, node, model, f, optimum[f], objective)
+        eval.par = get_eval_measures(effect, node, model, f, optimum[f], grid.size, objective)
         
         # node with optimum
         node = find_optimal_node(tree, optimum)
-        eval.opt = get_eval_measures(effect, node, model, f, optimum[f], objective)
+        eval.opt = get_eval_measures(effect, node, model, f, optimum[f], grid.size, objective)
         
         df = rbind(df, data.frame("id" = id, "data" = names(data)[i], "model" = names(data[[i]]$model)[j], "objective" = k, "feature" = f, 
                                   "par.conf" = eval.par$conf.diff, "par.gt.abs" = eval.par$gt.diff.abs, "par.gt.sd" = eval.par$gt.diff.sd,
@@ -126,6 +128,27 @@ res = test()
 
 
 
+set.seed(123)
+for(i in 1:10){
+  data = get_all(path, folder, 500)
+  for(n.split in c(1,2,3)){
+    result = test(n.split, data)
+    result$n.split = n.split
+    result$run = i
+    if(i == 1 & n.split == 1){
+      result.all = result
+    }
+    else result.all = rbind(result.all, result)
+  }
+  
+}
+
+saveRDS(result.all, "resultEvals.10rep.rds")
+
+
+
+
+
 ############################
 #improvements from parent node to final node containing optimum
 
@@ -139,6 +162,11 @@ res$conf.diff.opt = res$par.conf.opt-res$opt.conf.opt
 res$gt.abs.diff.opt = res$par.gt.abs.opt-res$opt.gt.abs.opt
 res$gt.sd.diff.opt = res$par.gt.sd.opt-res$opt.gt.sd.opt
 
+# precentage improvement
+res$conf.rel = res$conf.diff/res$par.conf
+res$gt.rel = res$gt.abs.diff/res$par.gt.abs
+res$conf.rel.opt = res$conf.diff.opt/res$par.conf.opt
+res$gt.rel.opt = res$gt.abs.diff.opt/res$par.gt.abs.opt
 
 
 resultsEval = resultsEval[-1,]
@@ -163,5 +191,7 @@ sum(improv.gt$freq[which(improv.gt$objective=="SS_L1")])  #34 57 #43 37
 sum(improv.gt$freq[which(improv.gt$objective=="SS_L2")])  #33 54 #42 37
 # 10D
 # 0.1
+
+
 
 

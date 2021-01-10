@@ -1,6 +1,6 @@
 
 
-get_ice_curves <- function(model, data, feature, mean = FALSE){
+get_ice_curves <- function(model, data, feature, grid.size, mean = FALSE){
   mymodel = makeS3Obj("mymodel", fun = function() return(model))
   predict.mymodel = function(object, newdata) {
     pred = predict(object$fun(), newdata = newdata)
@@ -10,7 +10,7 @@ get_ice_curves <- function(model, data, feature, mean = FALSE){
   }
   
   predictor = Predictor$new(model = mymodel, data = data, predict.function = predict.mymodel)
-  effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice")
+  effect = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "ice")
 }
 
 
@@ -31,14 +31,14 @@ SS_area = function(y, x, requires.x = FALSE, ...) {
 
 
 
-get_eval_measures = function(effect, node, model, pdp.feature, optimum, objective.groundtruth = NULL, method = "pdp_var_gp") {
+get_eval_measures = function(effect, node, model, pdp.feature, optimum, grid.size, objective.groundtruth = NULL, method = "pdp_var_gp") {
   data = effect$predictor$data$X[node$subset.idx, ]
   data = as.data.frame(data)
-  pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, method = method)
+  pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, grid.size = grid.size, method = method)
   pp$lower = pp$mean - 2 * pp$sd
   pp$upper = pp$mean + 2 * pp$sd
   
-  pp.gt = marginal_effect(objective.groundtruth, pdp.feature, data, model)
+  pp.gt = marginal_effect(objective.groundtruth, pdp.feature, data, model, grid.size)
   
   conf.diff = sum(pp$upper-pp$lower)
   gt.diff.abs = sum(abs(pp.gt$mean-pp$mean))
@@ -46,7 +46,7 @@ get_eval_measures = function(effect, node, model, pdp.feature, optimum, objectiv
   
   # values around optimum
   pp["dist.opt"] = abs(pp[,pdp.feature]-optimum)
-  pp.opt = pp[order(pp$dist.opt),][1:3,] # adjust number of grid points to evaluate?
+  pp.opt = pp[order(pp$dist.opt),][1,] # adjust number of grid points to evaluate?
   
   conf.diff.opt = sum(pp.opt$upper-pp.opt$lower)
   gt.diff.abs.opt = sum(abs(pp.gt$mean[which(pp.opt[,pdp.feature] %in% pp.gt[,pdp.feature])]-pp.opt$mean))

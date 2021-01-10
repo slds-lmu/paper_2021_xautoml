@@ -95,17 +95,18 @@ Node <- R6Class("Node", list(
 
 
 
-compute_tree = function(model, testdata, feature, objective, n.split) {
+compute_tree = function(model, testdata, feature, objective, n.split, grid.size, addMean = FALSE) {
 
   if (objective == "SS_L1") {
     mymodel = makeS3Obj("mymodel", fun = function() return(model))
     predict.mymodel = function(object, newdata) {
       pred = predict(object$fun(), newdata = newdata)
       pp = getPredictionSE(pred)
+      if(addMean == TRUE) pp = getPredictionResponse(pred) - 2*pp
       return(pp)
     }
     predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
-    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice")
+    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice", grid.size = grid.size)
 
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
@@ -121,10 +122,11 @@ compute_tree = function(model, testdata, feature, objective, n.split) {
     predict.mymodel = function(object, newdata) {
       pred = predict(object$fun(), newdata = newdata)
       pp = getPredictionSE(pred)
+      if(addMean == TRUE) pp = getPredictionResponse(pred) - 2*pp
       return(pp)
     }
     predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
-    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice")
+    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice", grid.size = grid.size)
     
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
@@ -141,10 +143,11 @@ compute_tree = function(model, testdata, feature, objective, n.split) {
     predict.mymodel = function(object, newdata) {
       pred = predict(object$fun(), newdata = newdata)
       pp = getPredictionSE(pred)
+      if(addMean == TRUE) pp = getPredictionResponse(pred) - 2*pp
       return(pp)
     }
     predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
-    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice")
+    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice", grid.size = grid.size)
     
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
@@ -154,6 +157,66 @@ compute_tree = function(model, testdata, feature, objective, n.split) {
     } 
     
     input.data = compute_data_for_ice_splitting(effect)
+  }
+  
+  else if (objective == "SS_area_med") {
+    mymodel = makeS3Obj("mymodel", fun = function() return(model))
+    predict.mymodel = function(object, newdata) {
+      pred = predict(object$fun(), newdata = newdata)
+      pp = getPredictionSE(pred)
+      if(addMean == TRUE) pp = getPredictionResponse(pred) - 2*pp
+      return(pp)
+    }
+    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
+    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice", grid.size = grid.size)
+    
+    # define objective
+    split.objective = function(y, x, requires.x = FALSE, ...) {
+      row_means = rowMeans(y) # area of individual ice curves
+      ypred = median(row_means) # area of pdp
+      sum((row_means - ypred)^2)
+    } 
+    
+    input.data = compute_data_for_ice_splitting(effect)
+  }
+  
+  else if (objective == "SS_area_quant") {
+    mymodel = makeS3Obj("mymodel", fun = function() return(model))
+    predict.mymodel = function(object, newdata) {
+      pred = predict(object$fun(), newdata = newdata)
+      pp = getPredictionSE(pred)
+      if(addMean == TRUE) pp = getPredictionResponse(pred) - 2*pp
+      return(pp)
+    }
+    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
+    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice", grid.size = grid.size)
+    
+    # define objective
+    split.objective = function(y, x, requires.x = FALSE, ...) {
+      row_means = rowMeans(y) # area of individual ice curves
+      ypred = quantile(row_means, 0.2) # area of pdp
+      sum((row_means - ypred)^2)
+    } 
+    
+    input.data = compute_data_for_ice_splitting(effect)
+  }
+  
+  else if (objective == "SS_sd") {
+    mymodel = makeS3Obj("mymodel", fun = function() return(model))
+    predict.mymodel = function(object, newdata) {
+      pred = predict(object$fun(), newdata = newdata)
+      pp = getPredictionSE(pred)
+      return(pp)
+    }
+    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
+    predictions = predictor$predict(testdata[, model$features])
+    
+    # define objective
+    split.objective = function(y, x, requires.x = FALSE, ...) {
+      sum(abs(y$pred - median(y$pred)))
+    } 
+    split.feats = setdiff(model$features, feature)
+    input.data = list(X = setDT(testdata[,split.feats, drop = FALSE]), Y = setDT(predictions) )
   }
   
   else {
@@ -205,11 +268,11 @@ order_nodes_by_objective = function(tree, depth) {
   order(get_objective_values(tree, depth = depth))
 }
 
-compute_pdp_for_node = function(node, testdata, model, pdp.feature, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
+compute_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
 
     data = testdata[node$subset.idx, ]
     data = as.data.frame(data)
-    pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, method = method)
+    pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, grid.size = grid.size, method = method)
     
     q = qnorm(1 - alpha / 2)
     pp$lower = pp$mean - q * pp$sd
@@ -218,16 +281,16 @@ compute_pdp_for_node = function(node, testdata, model, pdp.feature, objective.gt
 
     pp.gt = NULL
     if (!is.null(objective.gt))
-      pp.gt = marginal_effect(objective.gt, pdp.feature, data, model)
+      pp.gt = marginal_effect(objective.gt, pdp.feature, data, model, grid.size)
 
     return(list(pdp_data = pp, pdp_groundtruth_data = pp.gt))
 }
 
 
 
-plot_pdp_for_node = function(node, testdata, model, pdp.feature, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
+plot_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
  
-    data = compute_pdp_for_node(node, testdata, model, pdp.feature, objective.gt, method, alpha = alpha)
+    data = compute_pdp_for_node(node, testdata, model, pdp.feature, grid.size, objective.gt, method, alpha = alpha)
 
     pp = data$pdp_data
     pp.gt = data$pdp_groundtruth_data

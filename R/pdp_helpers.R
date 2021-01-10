@@ -1,4 +1,4 @@
-marginal_effect = function(obj, feature, data, model) {
+marginal_effect = function(obj, feature, data, model, grid.size) {
         
     mymodel = makeS3Obj("mymodel", fun = function(data) return(apply(data[, model$features], 1, obj)))
                         
@@ -7,7 +7,7 @@ marginal_effect = function(obj, feature, data, model) {
     }
                         
     predictor = Predictor$new(model = mymodel, data = data[, model$features], predict.function = predict.mymodel)
-    effects = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp")
+    effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
 
     res = effects$results
     names(res) = c(feature, "mean")
@@ -16,10 +16,10 @@ marginal_effect = function(obj, feature, data, model) {
 }
 
 
-predicted_marginal_effect = function(model, feature, data) {
+predicted_marginal_effect = function(model, feature, data, grid.size) {
                                 
     predictor = Predictor$new(model = model, data = data)
-    effects = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp")
+    effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
     
     res = effects$results
     names(res) = c(feature, "mean")
@@ -27,7 +27,7 @@ predicted_marginal_effect = function(model, feature, data) {
     return(res)
 }
 
-marginal_effect_sd_over_mean = function(model, feature, data, method, alpha = 0.05, correction = NULL) {
+marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method, alpha = 0.05, correction = NULL) {
 
 	# Different methods to estimate the standard deviation are implemented
 	# - pdp_sd: 			partial dependence over the posterior standard deviation 1 / n * sum s(x_S, x_C) is computed 
@@ -37,7 +37,7 @@ marginal_effect_sd_over_mean = function(model, feature, data, method, alpha = 0.
 	# - thompson: 			An empirical variant via thompson sampling 
 
     # standard PDP over mean 
-    res = predicted_marginal_effect(model, feature, data)
+    res = predicted_marginal_effect(model, feature, data, grid.size)
 
     # compute now the PDP for the variance 
   	# helper function for a custom PDP 
@@ -57,7 +57,7 @@ marginal_effect_sd_over_mean = function(model, feature, data, method, alpha = 0.
 
 	    predictor = Predictor$new(mymodel, data = data, predict.function = predict.mymodel)
 	    
-	    effects = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp")
+	    effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
 
 	    if (method == "pdp_sd") {
 	    	res$sd = effects$results$.value
@@ -149,11 +149,11 @@ conditional_mean_sd = function(model, feature, data, method) {
 
 	    # Get first (#1) of the estimator (i.e. the PDP over the posterior variance)
 	    predictor = Predictor$new(mymodel, data = data[c("x1", "x2")], predict.function = predict.mymodel)
-	    effects_1 = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp")
+	    effects_1 = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
 
 	    # Get (#2) (i.e., the variance over the ice curves for one grid point)
 	    predictor = Predictor$new(model = model, data = data[c("x1", "x2")])
-	    effects_2 = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice")
+	    effects_2 = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp+ice")
 	    df = setDT(effects_2$results)
 	    df = df[.type == "ice", .(.value= sd(.value)^2), by = feature]
 	    
