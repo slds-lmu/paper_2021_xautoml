@@ -84,3 +84,41 @@ find_optimal_node = function(tree, optimum){
   return(node)
 }
 
+
+
+
+# mlp separate until surrogate data problem fixed
+get_eval_measures_mlp = function(effect, node, model, pdp.feature, optimum, grid.size, objective.groundtruth = NULL, method = "pdp_var_gp") {
+  data = effect$predictor$data$X[node$subset.idx, ]
+  data = as.data.frame(data)
+  pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, grid.size = grid.size, method = method)
+  pp$lower = pp$mean - 2 * pp$sd
+  pp$upper = pp$mean + 2 * pp$sd
+  
+  
+  data.groundtruth = data
+  data.groundtruth$batch_size = 2^data.groundtruth$batch_size
+  data.groundtruth$max_units = 2^data.groundtruth$max_units
+  
+  pp.gt = predicted_marginal_effect(objective.groundtruth, pdp.feature, data.groundtruth, grid.size)
+  if (pdp.feature %in% c("batch_size", "max_units")) {
+    pp.gt[pdp.feature] = log(pp.gt[pdp.feature], 2)
+  }
+  pp.gt$mean = (100-pp.gt$mean)/100
+  
+  
+  conf.diff = sum(pp$upper-pp$lower)
+  gt.diff.abs = sum(abs(pp.gt$mean-pp$mean))
+  gt.diff.sd = sd(pp.gt$mean-pp$mean)
+  
+  # values around optimum
+  pp["dist.opt"] = abs(pp[,pdp.feature]-optimum)
+  pp.opt = pp[order(pp$dist.opt),][1,] # adjust number of grid points to evaluate?
+  
+  conf.diff.opt = sum(pp.opt$upper-pp.opt$lower)
+  gt.diff.abs.opt = sum(abs(pp.gt$mean[which(pp.opt[,pdp.feature] %in% pp.gt[,pdp.feature])]-pp.opt$mean))
+  gt.diff.sd.opt = sd(pp.gt$mean[which(pp.opt[,pdp.feature] %in% pp.gt[,pdp.feature])]-pp.opt$mean)
+  
+  return(list("conf.diff" = conf.diff, "gt.diff.abs" = gt.diff.abs, "gt.diff.sd" = gt.diff.sd,
+              "conf.diff.opt" = conf.diff.opt, "gt.diff.abs.opt" = gt.diff.abs.opt, "gt.diff.sd.opt" = gt.diff.sd.opt))
+}
