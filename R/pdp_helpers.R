@@ -15,6 +15,27 @@ marginal_effect = function(obj, feature, data, model, grid.size) {
     return(res)
 }
 
+marginal_effect_mlp = function(obj, feature, data, model, grid.size) {
+        
+    mymodel = makeS3Obj("mymodel", fun = function(data) {
+        res = lapply(seq_row(data), function(i) {
+            obj(as.list(data[i, model$features]))
+        })
+        return(unlist(res))
+    })
+
+    predict.mymodel = function(object, newdata) {
+        object$fun(newdata)
+    }
+                        
+    predictor = Predictor$new(model = mymodel, data = data[, model$features], predict.function = predict.mymodel)
+    effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
+
+    res = effects$results
+    names(res) = c(feature, "mean")
+                        
+    return(res)
+}
 
 predicted_marginal_effect = function(model, feature, data, grid.size) {
                                 
@@ -63,10 +84,36 @@ marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method,
 	    	res$sd = effects$results$.value
 	    } 
 	    if (method == "pdp_var") {
-	    	res$sd = sqrt(1 / nrow(data) * effects$results$.value) # we have to devide once more by n --> see formula
+	    	res$sd = sqrt(effects$results$.value) # we have to devide once more by n --> see formula
 	    }
     	res$`NA` = NULL
     }
+
+    if (method == "pdp_cond") {
+	    mymodel = makeS3Obj("mymodel", fun = function() return(model))
+	    
+	    # Helper function 
+	    predict.mymodel = function(object, newdata) {
+	      pred = predict(object$fun(), newdata = newdata)
+	      getPredictionSE(pred)^2 
+	    }
+
+	    # Get first (#1) of the estimator (i.e. the PDP over the posterior variance)
+	    predictor = Predictor$new(mymodel, data = data, predict.function = predict.mymodel)
+	    effects_1 = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
+
+	    # Get (#2) (i.e., the variance over the ice curves for one grid point)
+	    predictor = Predictor$new(model = model, data = data)
+	    effects_2 = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "ice")
+	    df = setDT(effects_2$results)
+	    df = df[, .(.value = var(.value)), by = feature]
+	    
+	    res$mean_var = effects_1$results$.value
+	    res$var_mean = df$.value
+	    res$sd = sqrt(effects_1$results$.value + df$.value)
+	    res$`NA` = NULL
+    }
+
 
     if (method %in% c("pdp_var_gp")) {
     
@@ -105,10 +152,43 @@ marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method,
     	res = do.call(rbind, res)
     }
 
-    if (method == "thompson") {
 
-		# We compute the grid we want to draw the GP's over
-		# combine grid points with test data 	    
+
+    return(res)
+}
+
+conditional_mean_sd = function(model, feature, data, method, grid.size) {
+	# - pdp_cond: 			c(lambda) | lambda_S = lambda_S; variance derived according to law of total variance
+	# - pdp_cond_thomps: 	same as pdp_cond, but empirical variant via thomspon sampling 
+	    # standard PDP over mean 
+
+    res = predicted_marginal_effect(model, feature, data)
+
+    if (method == "pdp_cond") {
+	    mymodel = makeS3Obj("mymodel", fun = function() return(model))
+	    
+	    # Helper function 
+	    predict.mymodel = function(object, newdata) {
+	      pred = predict(object$fun(), newdata = newdata)
+	      getPredictionSE(pred)^2 
+	    }
+
+	    # Get first (#1) of the estimator (i.e. the PDP over the posterior variance)
+	    predictor = Predictor$new(mymodel, data = data, predict.function = predict.mymodel)
+	    effects_1 = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
+
+	    # Get (#2) (i.e., the variance over the ice curves for one grid point)
+	    predictor = Predictor$new(model = model, data = data)
+	    effects_2 = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "ice")
+	    df = setDT(effects_2$results)
+	    df = df[, .(.value= sd(.value)^2), by = feature]
+	    
+	    res$sd = sqrt(df$.value + effects_1$results$.value)
+
+    }
+
+    if (method == "pdp_cond_thomps") {
+
 	    grid = merge(res[, feature], data[, setdiff(x = names(data), y = feature)])
 	    names(grid) = c("x1", "x2")
 
@@ -126,42 +206,7 @@ marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method,
 
 	    # Compute the mean over all PDPs over the samples as well as the standard deviation 
 	    res = pdp_over_samples[, .(mean = mean(v), sd = sd(v)), by = feature]
-    }
 
-    return(res)
-}
-
-conditional_mean_sd = function(model, feature, data, method) {
-	# - pdp_cond: 			c(lambda) | lambda_S = lambda_S; variance derived according to law of total variance
-	# - pdp_cond_thomps: 	same as pdp_cond, but empirical variant via thomspon sampling 
-	    # standard PDP over mean 
-
-    res = predicted_marginal_effect(model, feature, data)
-
-    if (method == "pdp_cond") {
-	    mymodel = makeS3Obj("mymodel", fun = function() return(model))
-	    
-	    # Helper function 
-	    predict.mymodel = function(object, newdata) {
-	      pred = predict(object$fun(), newdata = newdata)
-	      getPredictionSE(pred)^2 
-	    }
-
-	    # Get first (#1) of the estimator (i.e. the PDP over the posterior variance)
-	    predictor = Predictor$new(mymodel, data = data[c("x1", "x2")], predict.function = predict.mymodel)
-	    effects_1 = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
-
-	    # Get (#2) (i.e., the variance over the ice curves for one grid point)
-	    predictor = Predictor$new(model = model, data = data[c("x1", "x2")])
-	    effects_2 = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp+ice")
-	    df = setDT(effects_2$results)
-	    df = df[.type == "ice", .(.value= sd(.value)^2), by = feature]
-	    
-	    res$sd = sqrt(df$.value + effects_1$results$.value)
-	    res$`NA` = NULL
-    }
-
-    if (method == "pdp_cond_thomps") {
 
     	# Create all values along the grid points with the help of the test data
 	    grid = merge(res[, feature], data[, setdiff(x = c("x1", "x2"), y = feature)])

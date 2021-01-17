@@ -20,7 +20,7 @@ source("R/mlp_helper.r")
 # -- SYNTHETIC FUNCTIONS 
 id = "StyblinskiTang"
 dimension = 5
-lambda = 2
+lambda = 0.1
 path = file.path("data/runs/synthetic", id, paste0(dimension, "D"))
 
 # Get the objective
@@ -34,14 +34,19 @@ model = run$models[[length(run$models)]]
 best_candidate = as.data.frame(run$opt.path)[run$best.ind, ]
 
 # Select the feature that we want to interpret
-feature = "x3"
-df = generateDesign(par.set = ps, n = 1000, fun = lhs::randomLHS)
+feature = "x1"
+df = generateDesign(par.set = ps, n = 10000, fun = lhs::randomLHS)
 
+start_t = Sys.time()
 tree = compute_tree(model = model,
             testdata = df, 
             feature = feature, 
             objective = "SS_L1",
-            n.split = 3)
+            grid.size = 20, 
+            n.split = 4)
+end_t = Sys.time()
+
+print(end_t - start_t)
 
 
 p = plot_tree_pdps(tree = tree, 
@@ -49,10 +54,15 @@ p = plot_tree_pdps(tree = tree,
                 model = model, 
                 pdp.feature = feature, 
                 obj = obj, 
-                method = "pdp_var_gp", 
-                alpha = 0.01, 
+                method = "pdp_var", 
+                alpha = 0.05, 
+                grid.size = 20,
                 best_candidate = best_candidate
                 )
+p
+
+plot_pdp_for_node(node = tree[[1]][[1]], testdata = df, model = model, pdp.feature = "x2", grid.size = 20, objective.gt = obj, method = "pdp_cond")
+
 
 # Check manually wether uncertainty reduced along the path
 # Attention: this needs to be manually changed depending to in which node the optimum is  
@@ -91,16 +101,17 @@ df = generateDesign(par.set = ps, n = 1000, fun = lhs::randomLHS)
 tree = compute_tree(model = model,
             testdata = df, 
             feature = feature, 
-            objective = "SS_L1",
-            n.split = 2)
+            objective = "SS_area",
+            n.split = 3, 
+            grid.size = 20)
 
 p1 = plot_pdp_for_node(node = tree[[1]][[1]],
                   testdata = df, 
                   model = model, 
                   pdp.feature = feature,
                   # objective.gt = obj,
-                  method = "pdp_var_gp",
-                  alpha = 0.01
+                  method = "pdp_var",
+                  alpha = 0.05
                   ) 
 
 p2 = plot_tree_pdps(tree = tree, 
@@ -108,11 +119,12 @@ p2 = plot_tree_pdps(tree = tree,
                 model = model, 
                 pdp.feature = feature, 
                 # obj = obj, 
-                method = "pdp_var_gp", 
+                method = "pdp_var", 
                 alpha = 0.05, 
-                best_candidate = best_candidate
+                best_candidate = best_candidate,
+                grid.size = 20
                 )
-
+p2
 
 
 ## -- MLP 

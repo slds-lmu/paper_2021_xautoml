@@ -68,11 +68,13 @@ submitJobs(tosubmit, resources = resources.serial)
 # We do this problem-wise 
 probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "sylvine")
 
+probs_all = unique(tab$problem)
+probs = setdiff(probs_all, probs)
+
 for (prob in probs) {
 
-  toreduce = tab[problem %in% prob, ]
+  toreduce = tab[problem %in% prob & algorithm == "mlrmbo", ]
   toreduce = ijoin(toreduce, findDone())
-
   res = reduceResultsDataTable(toreduce)
   res = ijoin(tab, res)
 
@@ -80,6 +82,21 @@ for (prob in probs) {
     dir.create(file.path("data/runs/mlp_new/", prob))
   }
 
-  saveRDS(res, file.path("data/runs/mlp_new", prob, "mlrmbo30_vs_randomLHS.rds"))
+  for (lamb in unique(res[algorithm == "mlrmbo", ]$lambda)) {
+    res_tostore = res[algorithm == "mlrmbo" & lambda == lamb, ]
+    saveRDS(res_tostore, file.path("data/runs/mlp_new", prob, paste0("mlrmbo_run_lambda_", lamb, "_30repls.rds")))
+  }
+
+  # Make randomsearch smaller 
+  toreduce = tab[problem %in% prob & algorithm == "randomsearch", ]
+  toreduce = ijoin(toreduce, findDone())
+  res = reduceResultsDataTable(toreduce, function(x) {
+    x$models_on_randomLHS[[2]] = NULL
+    x$perf_on_test_data_randomLHS = x$perf_on_test_data_randomLHS[1, ]
+    x
+  })
+  res = ijoin(tab, res)
+  saveRDS(res, file.path("data/runs/mlp_new", prob, paste0("randomsearch_run_30repls.rds")))
+
 }
 

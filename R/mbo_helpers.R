@@ -1,4 +1,4 @@
-createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_size = NULL, seed = NULL) {
+createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_size = NULL, seed = NULL, eval_performance = FALSE) {
         
 
     ps = getParamSet(fun)
@@ -22,6 +22,18 @@ createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_s
     
     res = mbo(fun, design = des, control = ctrl, show.info = FALSE)
     attr(res, "type") = type
+
+    # evaluate on a big random LHS 
+    if (eval_performance) {
+        des = generateDesign(n = 10000, par.set = ps, fun = lhs::randomLHS)
+        des$y = apply(des, 1, fun)
+        perfs = lapply(res$models, function(model) {
+            pred = predict(model, newdata = des)
+            c(performance(pred, list(mae, rmse)), mean.se = mean(pred$data$se))
+            })  
+        perfs = do.call(rbind, perfs)  
+        res$model.performances = perfs   
+    }
 
     saveRDS(res, store_path)
 }
@@ -60,6 +72,13 @@ extract_models = function(runs) {
         return(model)
     })
 }
+
+extract_performances = function(runs) {
+    lapply(seq_along(runs), function(i) {
+        performance = runs[[i]]$model.performances
+    })
+}
+
 
 predict_on_grid = function(model, grid) {
     pred = predict(model, newdata = grid)$data
