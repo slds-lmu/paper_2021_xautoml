@@ -48,7 +48,7 @@ Node <- R6Class("Node", list(
       self$stop.criterion.met = FALSE
     },
 
-    computeSplit = function(objective, optimizer, min.split = 10) {
+    computeSplit = function(objective, optimizer, min.split = 2) {
       
       if (length(self$subset.idx) < min.split) {
         self$stop.criterion.met = TRUE
@@ -58,8 +58,8 @@ Node <- R6Class("Node", list(
 
         tryCatch({
           split = split_parent_node(Y = self$Y[self$subset.idx, ], X = self$X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
-          self$split.feature = split$feature[split$best.split]
-          self$split.value = unlist(split$split.points[split$best.split])
+          self$split.feature = split$feature[split$best.split][1]
+          self$split.value = unlist(split$split.points[split$best.split])[1]
         }, 
         error = function(cond) {
           message(paste0("Min.node.size is reached in node ", self$id))
@@ -102,7 +102,7 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
     predict.mymodel = function(object, newdata) {
       pred = predict(object$fun(), newdata = newdata)
       pp = getPredictionSE(pred)
-      if(addMean == TRUE) pp = getPredictionResponse(pred) - 2*pp
+      if(addMean == TRUE) pp = getPredictionResponse(pred)
       return(pp)
     }
     predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
@@ -144,7 +144,7 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
     predict.mymodel = function(object, newdata) {
       pred = predict(object$fun(), newdata = newdata)
       pp = getPredictionSE(pred)
-      if(addMean == TRUE) pp = getPredictionResponse(pred) - 2*pp
+      if(addMean == TRUE) pp = getPredictionResponse(pred)
       return(pp)
     }
     predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
@@ -237,7 +237,7 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
     leaves = tree[[depth]]
 
     tree[[depth + 1]] = list()
-
+    #browser()
     for (node.idx in seq_along(leaves)) {
 
       node.to.split = leaves[[node.idx]]
