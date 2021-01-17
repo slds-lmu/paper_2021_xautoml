@@ -111,6 +111,7 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
       require(Rfast)
+      #y = y*100
       ypred = Rfast::colMedians(as.matrix(y))
       sum(t(abs(t(y) - ypred)))
     } 
@@ -151,6 +152,7 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
     
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
+      #y = y*100
       row_means = rowMeans(y) # area of individual ice curves
       ypred = mean(row_means) # area of pdp
       sum((row_means - ypred)^2)
@@ -195,7 +197,7 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
     split.objective = function(y, x, requires.x = FALSE, ...) {
       row_means = rowMeans(y) # area of individual ice curves
       ypred = quantile(row_means, 0.2) # area of pdp
-      sum((row_means - ypred)^2)
+      sum(abs(row_means - ypred))
     } 
     
     input.data = compute_data_for_ice_splitting(effect)
@@ -213,6 +215,7 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
     
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
+      y$pred = y$pred
       sum(abs(y$pred - median(y$pred)))
     } 
     split.feats = setdiff(model$features, feature)
