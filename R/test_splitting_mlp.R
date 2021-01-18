@@ -237,7 +237,6 @@ ggsave(file.path(path, dataset, "conf_diff.png"), p, width = 12, height = 3)
 p = ggplot(data = df, aes(x = objective, y = conf.rel.opt)) + geom_boxplot(aes(fill = as.factor(depth))) + facet_grid(. ~ feature)
 ggsave(file.path(path, dataset, "conf_opt_diff.png"), p, width = 12, height = 3)
 
-
 p = ggplot(data = df, aes(x = objective, y = neg_loglik)) + geom_boxplot(aes(fill = as.factor(depth))) + facet_grid(. ~ feature)
 ggsave(file.path(path, dataset, "neg_loglik.png"), p, width = 12, height = 3)
 
