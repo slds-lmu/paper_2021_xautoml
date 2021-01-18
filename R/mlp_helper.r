@@ -1,24 +1,64 @@
 
 
-get_data <- function(path, folder_mlp){
-  for (i in folder_mlp) {
-    data = readRDS(paste0(path,i, "/mlrmbo30_vs_randomLHS.rds"))
-    data.list = list(
-      "mbo_lambda0.5" = data$result[1:30],
-      "mbo_lambda1" = data$result[31:60],
-      "mbo_lambda2" = data$result[61:90],
-      "mbo_lambda10" = data$result[91:120],
-      "rlhs" = data$result[121:150],
-      # "rlhs_train_data" = data$result[[121]]$train_data_randomLHS[[1]],
-      "rlhs_test_data" = data$result[[121]]$test_data_randomLHS, 
-      # "rlhs_model" = data$result[[121]]$models_on_randomLHS[[1]],
-      "surrogate_data" = data$result[[121]]$lcbench_data,
-      "surrogate_model" = data$result[[121]]$surrogate_on_lcbench_GT
+get_data <- function(path, folder_mlp, lambda){
+  data.list = lapply(folder_mlp, function(folder) {
+    data = readRDS(file.path(path, folder, paste0("mlrmbo_run_lambda_", lambda, "_30repls.rds")))
+    surrogate_model = readRDS(file.path(path, folder, "surrogate.rds"))
+
+    data
+  })
+
+  names(data.list) = folder_mlp
+  
+  return(data.list)
+}
+
+get_models <- function(data){
+
+  models = lapply(names(data), function(dataset) {
+    reslist = data[[dataset]]$result
+    models = lapply(reslist, function(res) {
+      models = res$models
+      models[[length(models)]]
+    })
+    models
+  })
+
+  names(models) = names(data)
+
+  return(models)
+}
+
+get_optima <- function(data){
+
+  optima = lapply(names(data), function(dataset) {
+    reslist = data[[dataset]]$result
+    optima = lapply(reslist, function(res) {
+      res$opt.path[which.min(res$opt.path$y), ]
+    })
+    optima
+  })
+
+  names(optima) = names(data)
+
+  return(optima)
+}
+
+
+
+get_objective <- function(path, folder_mlp){
+  data.list = lapply(folder_mlp, function(folder) {
+    surrogate_model = readRDS(file.path(path, folder, "surrogate.rds"))
+    obj = readRDS(file.path(path, folder, "obj.rds"))
+    list(
+      obj = obj,
+      surrogate_model = surrogate_model$result[[1]]$model_val_balanced_acc
     )
-    assign(paste0("data_", tolower(i)), data.list)
-    
-  }
-  return(mget(paste0("data_", tolower(folder_mlp))))
+  })
+
+  names(data.list) = folder_mlp
+  
+  return(data.list)
 }
 
 
@@ -90,3 +130,20 @@ get_models_data <- function(data, lambda){
 
 
 
+compute_ground_truth_pdps = function(obj, path, dataset, features, testdata, testdata.size, grid.size) {
+  
+  savepath = file.path(path, dataset, paste0("gt_pdp_gridsize_", grid.size, "_testdatasize_", testdata.size, ".rds"))  
+
+  if (file.exists(savepath)) {
+    gtdata = readRDS(savepath)
+  } else {
+    gtdata = lapply(features, function(feature) {
+      marginal_effect_mlp(obj = obj, feature = feature, data = testdata, all.features = features, grid.size = grid.size, method = "pdp+ice")
+    })
+
+    names(gtdata) = features
+    saveRDS(gtdata, savepath)
+  }
+
+  return(gtdata)
+}

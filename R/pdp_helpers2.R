@@ -15,6 +15,28 @@ marginal_effect = function(obj, feature, data, model, grid.size) {
     return(res)
 }
 
+marginal_effect_mlp = function(obj, feature, data, all.features, grid.size, method = "pdp+ice") {
+        
+    mymodel = makeS3Obj("mymodel", fun = function(data) {
+        res = lapply(seq_row(data), function(i) {
+            obj(as.list(data[i, all.features]))
+        })
+        return(unlist(res))
+    })
+
+    predict.mymodel = function(object, newdata) {
+        object$fun(newdata)
+    }
+                        
+    predictor = Predictor$new(model = mymodel, data = data[, all.features], predict.function = predict.mymodel)
+    effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = method)
+
+    res = effects$results
+    names(res)[1:2] = c(feature, "mean")
+                        
+    return(res)
+}
+
 
 predicted_marginal_effect = function(model, feature, data, grid.size) {
                                 

@@ -1,4 +1,5 @@
 source("R/mlp_helper.r")
+
 library(iml)
 library(data.table)
 library(ranger)
@@ -14,126 +15,245 @@ library(gridExtra)
 
 source("R/pdp_helpers2.R")
 source("R/tree_splitting.R")
-source("R/helper_evaulation.R")
+source("R/helper_evaulation.r")
 #source("R/benchmarks/synthetic/mbo_helpers.R")
 
 
+# -- 1. INPUT 
 
-# Examples with phoneme data
 path = "data/mlp/"
-folder_mlp = "phoneme"
-data = get_data(path, folder_mlp)
-data = data[["data_phoneme"]]
+path = "data/runs/mlp_new/"
 
-# get mbo and rlhs data and models
-lambda = c("1")
-mbo_rlhs_data = get_models_data(data, lambda)
-features = colnames(mbo_rlhs_data$data.train.mbo[,1:(which(colnames(mbo_rlhs_data$data.train.mbo)=="y")-1)])
-#set.seed(123)
-#testdata =  data$rlhs_test_data[sample(1:3000, 1000),features]
+# datasets we want to take into account for analysis 
+folder_mlp = c("phoneme")
+
+# lambda we want to do the analysis for 
+lambda = 1
 
 
-# surrogate model and data
-surrogate = data$surrogate_model
-
-surrogate.data = data$surrogate_data[,features]
-surrogate.data$max_dropout = as.numeric(as.character(surrogate.data$max_dropout))
-surrogate.data$num_layers = as.numeric(as.character(surrogate.data$num_layers))
-surrogate.data$num_layers[which(is.na(surrogate.data$num_layers))] = 1
-surrogate.data$learning_rate = as.numeric(as.character(surrogate.data$learning_rate))
-surrogate.data$momentum = as.numeric(as.character(surrogate.data$momentum))
-surrogate.data$weight_decay = as.numeric(as.character(surrogate.data$weight_decay))
-surrogate.data$y = 1 - (as.numeric(as.character(data$surrogate_data$final_val_balanced_accuracy))/100)
-
-predictor.surrogate = Predictor$new(model = surrogate, data = surrogate.data)
-
-# optimum = surrogate.data[which.min(surrogate.data$y),features]
-# optimum$batch_size = log(optimum$batch_size, 2)
-# optimum$max_units = log(optimum$max_units, 2)
+# -- 2. READ ALL THE DATA 
+data = get_data(path, folder_mlp, lambda = lambda)
+all_models = get_models(data)
+objectives = get_objective(path, folder_mlp)
+all_optima = get_optima(data)
 
 
+# -- 3. Perform detailed analysis for a specific dataset 
 
-#setup parallel backend to use many processors
-# cores=detectCores()
-# cl <- makeCluster(cores[1]-1) #not to overload your computer
-# registerDoParallel(cl)
+dataset = "phoneme"
+grid.size = 20
+testdata.size = 1000
 
-test = function(n.split, data, testdata, surrogate, optimum, run){
-  df = data.frame("id" = NA, "model" = NA, "objective" = NA, "feature" = NA, "par.conf" = NA, "par.gt.abs" = NA, "par.gt.sd" = NA,
-                  "opt.conf" = NA, "opt.gt.abs" = NA, "opt.gt.sd" = NA,
-                  "par.conf.opt" = NA, "par.gt.abs.opt" = NA, "par.gt.sd.opt" = NA,
-                  "opt.conf.opt" = NA, "opt.gt.abs.opt" = NA, "opt.gt.sd.opt" = NA)
-  
-  id = 1
+# Ground-truth
+obj = objectives[[dataset]]$obj
+surr_val = objectives[[dataset]]$surrogate_model
+ps = getParamSet(obj)
+
+# Surrogate models of the different mbo runs
+models = all_models[[dataset]]
+features = all_models[[dataset]][[1]]$features
+
+# Found optimal values for the different mbo runs 
+optima = all_optima[[dataset]]
+
+# Compute some test we do our computations on 
+testdata_path = file.path(path, dataset, paste0("testdata_", testdata.size, ".rds"))
+
+if (file.exists(testdata_path)) {
+  testdata = readRDS(testdata_path)
+} else {
+  testdata = generateRandomDesign(n = testdata.size, par.set = ps) # TODO: n must be much higher, this is just for testing
+  saveRDS(testdata, testdata_path)
+}
+
+# Compute the ground truth data (we compute it once, and later on just store it)
+gtdata = compute_ground_truth_pdps(obj = obj, path = path, dataset = dataset, features = features, testdata = testdata, testdata.size = testdata.size, grid.size = grid.size)
+
+storepath = file.path(path, dataset, paste0("effects_and_trees2.rds"))
+
+reslist = compute_trees(n.split = 6, models = models, features = features, optima = optima, testdata = testdata, storepath = storepath)
+
+# reslist_backup = reslist
+
+# Compute first all trees and then do the analysis afterwards
+compute_trees = function(n.split, models, features, optima, testdata, storepath, plot = FALSE) {
+    
   grid.size = 20
   objectives = c("SS_L2","SS_area")
-  
-  #browser() 
-  #for(i in 1:length(data)){
-  #testdata = data[[i]]$testset
-  features = names(testdata)
-  objective = surrogate
-  optimum = optimum
-  #names(optimum) = features
-  
-  for(j in 1:length(data$model.list.mbo)){
-    model = data$model.list.mbo[[j]][[run]]
-    
-    for(k in objectives){
+
+  alpha = 0.05
+
+  # Iterate over all models we have 
+
+  reslist = list()
+
+  for (i in seq_along(models[1:10])) {
+
+    print(i)
+
+    model = models[[i]]
+    optimum = optima[[i]]
+
+    results_for_features = list()
+
+    for (feature in features) {
+
+      # Compute all ice curves
+      mymodel = makeS3Obj("mymodel", fun = function() return(model))
       
-      for(f in features) {
-        # calculate initial ice curves and pdp and groundtruth
-        res = marginal_effect_sd_over_mean(model, f, testdata, grid.size, "pdp_sd", alpha = 0.05, correction = NULL)
-        res.pdp = res$pdp
-        res.ice = res$ice
-        q = qnorm(1 - 0.05 / 2)
-        res.pdp$lower = res.pdp$mean - q * res.pdp$sd
-        res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
-        data.groundtruth = testdata
-        data.groundtruth$batch_size = 2^data.groundtruth$batch_size
-        data.groundtruth$max_units = 2^data.groundtruth$max_units
-        
-        gt = predicted_marginal_effect(surrogate, f, data.groundtruth, grid.size)
-        gt.pdp = gt$pdp
-        gt.ice = gt$ice
-        if (f %in% c("batch_size", "max_units")) {
-          gt.pdp[f] = log(gt.pdp[f], 2)
-          gt.ice[f] = log(gt.ice[f], 2)
-        }
-        gt.pdp$mean = (100-gt.pdp$mean)/100
-        gt.ice$.value = (100-gt.ice$.value)/100
-        
-        
-        
-        
-       
-        tree = compute_tree(model, testdata, f, objective = k, n.split = n.split, grid.size = grid.size, addMean = FALSE) # n.splits anpassen
-        
-        
-        # parent node
-        node = tree[[1]][[1]]
-        eval.par = get_eval_measures_mlp(res.ice, gt.ice, node$subset.idx, f, optimum[f])
-        
-        # node with optimum
-        node = find_optimal_node(tree, optimum)
-        eval.opt = get_eval_measures_mlp(res.ice, gt.ice, node$subset.idx, f, optimum[f])
-        
-        df = rbind(df, data.frame("id" = id, "model" = names(data$model.list.mbo)[j], "objective" = k, "feature" = f, 
-                                  "par.conf" = eval.par$conf.diff, "par.gt.abs" = eval.par$gt.diff.abs, "par.gt.sd" = eval.par$gt.diff.sd,
-                                  "opt.conf" = eval.opt$conf.diff, "opt.gt.abs" = eval.opt$gt.diff.abs, "opt.gt.sd" = eval.opt$gt.diff.sd,
-                                  "par.conf.opt" = eval.par$conf.diff.opt, "par.gt.abs.opt" = eval.par$gt.diff.abs.opt, "par.gt.sd.opt" = eval.par$gt.diff.sd.opt,
-                                  "opt.conf.opt" = eval.opt$conf.diff.opt, "opt.gt.abs.opt" = eval.opt$gt.diff.abs.opt, "opt.gt.sd.opt" = eval.opt$gt.diff.sd.opt))
-        
-        id = id + 1
+      predict.mymodel = function(object, newdata) {
+        pred = predict(object$fun(), newdata = newdata)
+        pp = getPredictionSE(pred)
+        # if(addMean == TRUE) 
+        #   pp = getPredictionResponse(pred) - 2 * pp
+        return(pp)
       }
-      
-      
-      
+
+      predictor = Predictor$new(model = mymodel, data = as.data.frame(testdata)[, model$features], predict.function = predict.mymodel)
+      effect_sd = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
+    
+      predictor = Predictor$new(model = model, data = as.data.frame(testdata)[, model$features])
+      effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
+
+      effect_sd_d = setDT(effect_sd$results)
+      names(effect_sd_d)[2] = "sd"
+      effect_mean_d = setDT(effect_mean$results)
+      names(effect_mean_d)[2] = "mean"
+
+      effects_merged = batchtools::ijoin(effect_sd_d, effect_mean_d, by = c(feature, ".type", ".id"))
+
+      sf = c(feature, "mean", "sd", ".id")
+      res.pdp = effects_merged[.type == "pdp", ..sf]
+      res.ice = effects_merged[.type == "ice", ..sf]
+
+      q = qnorm(1 - alpha / 2)
+      res.pdp$lower = res.pdp$mean - q * res.pdp$sd
+      res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
+
+      # Get the ground-truth
+      gt = gtdata[[feature]]
+      gt.pdp = setDT(gt)[.type == "pdp", ]
+      gt.ice = setDT(gt)[.type == "ice", ]
+
+      if (plot) {
+        p = ggplot(data = gt.pdp, aes_string(x = feature, y = "mean")) + geom_line(colour = "blue")
+        p = p + geom_ribbon(data = res.pdp, aes_string(x = feature, ymin = "lower", ymax = "upper"), alpha = 0.2) + geom_line(data = res.pdp, aes_string(x = feature, y = "mean"))
+        p = p + geom_vline(data = optimum, aes_string(xintercept = feature), colour = "orange", lty = 2)
+        p
+      }
+
+      trees = list()
+
+      for (objective in objectives) {
+
+        trees[[objective]] = compute_tree(effect_sd = effect_sd, testdata = testdata, objective = objective, n.split = n.split) 
+        end_t = Sys.time()
+
+      }
+
+      results_for_features[[feature]] = list(effects = effects_merged, res.pdp = res.pdp, res.ice = res.ice, gt.pdp = gt.pdp, gt.ice = gt.ice, trees = trees)
+    }
+
+    reslist[[i]] = results_for_features
+  }
+
+  saveRDS(reslist, storepath)
+
+  reslist
+}
+
+
+test = function(n.split, data, testdata, surrogate, optimum, run) {
+  
+  df = data.frame()
+
+  # Iterate over all models we have 
+  for (i in seq_along(reslist)) {
+
+    resmod = reslist[[i]]
+
+    for (feature in names(resmod)) {
+
+      res = reslist[[i]][[feature]]
+
+      effects_merged = res$effects
+
+      sf = c(feature, "mean", "sd", ".id")
+      res.pdp = effects_merged[.type == "pdp", ..sf]
+      res.ice = effects_merged[.type == "ice", ..sf]
+
+      q = qnorm(1 - alpha / 2)
+      res.pdp$lower = res.pdp$mean - q * res.pdp$sd
+      res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
+
+      # Get the ground-truth
+      gt.pdp = res$gt.pdp
+      gt.ice = res$gt.ice
+
+      if (plot) {
+        p = ggplot(data = gt.pdp, aes_string(x = feature, y = "mean")) + geom_line(colour = "blue")
+        p = p + geom_ribbon(data = res.pdp, aes_string(x = feature, ymin = "lower", ymax = "upper"), alpha = 0.2) + geom_line(data = res.pdp, aes_string(x = feature, y = "mean"))
+        p = p + geom_vline(data = optimum, aes_string(xintercept = feature), colour = "orange", lty = 2)
+        p
+      }
+
+      for (objective in names(res$trees)) {
+
+        tree = res$trees[[objective]]
+
+        source_node = tree[[1]][[1]]
+        eval.source_node = get_eval_measures_mlp(res.ice, gt.ice, source_node$subset.idx, feature, optimum[feature])
+        names(eval.source_node) = paste0("source.", names(eval.source_node))
+
+        for (depth in seq(2, length(tree))) {
+          
+          subtree = tree[seq_len(depth)]
+          node = find_optimal_node(subtree, optimum)
+          eval.opt = get_eval_measures_mlp(res.ice, gt.ice, node$subset.idx, feature, optimum[feature])
+          values = cbind(model = i, objective = objective, feature = feature, depth = depth, depth.actual = node$depth + 1, eval.opt, eval.source_node)
+     
+          if (is.null(df)) {
+            df = values
+          } else {
+            df = rbind(df, values)
+          }
+        }
+      }
     }
   }
-  
+
+  df$conf.rel = (df$source.conf.diff - df$conf.diff) / df$source.conf.diff
+  df$gt.rel = (df$source.gt.diff.abs - df$gt.diff.abs) / df$source.gt.diff.abs
+  df$conf.rel.opt = (df$source.conf.diff.opt - df$conf.diff.opt) / df$source.conf.diff.opt
+  df$gt.rel.opt = (df$source.gt.diff.abs.opt - df$gt.diff.abs.opt) / df$source.gt.diff.abs.opt
+
   return(df)
 }
+
+
+p = ggplot(data = df, aes(x = objective, y = conf.rel)) + geom_boxplot(aes(fill = as.factor(depth))) + facet_grid(. ~ feature)
+ggsave(file.path(path, dataset, "conf_diff.png"), p, width = 12, height = 3)
+
+p = ggplot(data = df, aes(x = objective, y = conf.rel.opt)) + geom_boxplot(aes(fill = as.factor(depth))) + facet_grid(. ~ feature)
+ggsave(file.path(path, dataset, "conf_opt_diff.png"), p, width = 12, height = 3)
+
+
+p = ggplot(data = df, aes(x = objective, y = neg_loglik)) + geom_boxplot(aes(fill = as.factor(depth))) + facet_grid(. ~ feature)
+ggsave(file.path(path, dataset, "neg_loglik.png"), p, width = 12, height = 3)
+
+p = ggplot(data = setDT(df)[feature != "momentum", ], aes(x = objective, y = gt.rel)) + geom_boxplot(aes(fill = as.factor(depth)))+ facet_grid(. ~ feature)
+ggsave(file.path(path, dataset, "gt_rel.png"), p, width = 12, height = 3)
+
+
+
+
+
+
+
+
+
+
+
 
 
 set.seed(123)

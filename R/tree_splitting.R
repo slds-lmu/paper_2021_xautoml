@@ -7,8 +7,6 @@ Node <- R6Class("Node", list(
     depth = NULL,
 
     # ids of the instances of data that are in this node
-    X = NULL,
-    Y = NULL,
     subset.idx = NULL,
     objective.value = NULL, # objective value in a node
 
@@ -25,39 +23,33 @@ Node <- R6Class("Node", list(
 
     stop.criterion.met = FALSE, 
 
-    initialize = function(id, depth = NULL, X, Y, subset.idx, id.parent = NULL, child.type = NULL) {
+    initialize = function(id, depth = NULL, subset.idx, id.parent = NULL, child.type = NULL) {
       
       assert_numeric(id, len = 1)
-      assert_class(X, c("data.table"))
-      assert_class(Y, c("data.table"))
       assert_numeric(depth, len = 1, null.ok = TRUE)
 
-      assert_numeric(subset.idx, min.len = 1, max.len = nrow(X))
       assert_numeric(id.parent, len = 1, null.ok = TRUE)
       assert_character(child.type, null.ok = TRUE)
 
       self$id = id
-      self$X = X
-      self$Y = Y
       self$depth = depth
       self$subset.idx = subset.idx
       self$id.parent = id.parent
       self$child.type = child.type
-      self$objective.value = 
 
       self$stop.criterion.met = FALSE
     },
 
-    computeSplit = function(objective, optimizer, min.split = 2) {
+    computeSplit = function(X, Y, objective, optimizer, min.split = 2) {
       
       if (length(self$subset.idx) < min.split) {
         self$stop.criterion.met = TRUE
       } else {
         # Just for information purposes
-        self$objective.value = objective(y = self$Y[self$subset.idx, ], x = self$X[self$subset.idx, ])
+        self$objective.value = objective(y = Y[self$subset.idx, ], x = X[self$subset.idx, ])
 
         tryCatch({
-          split = split_parent_node(Y = self$Y[self$subset.idx, ], X = self$X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
+          split = split_parent_node(Y = Y[self$subset.idx, ], X = X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
           self$split.feature = split$feature[split$best.split][1]
           self$split.value = unlist(split$split.points[split$best.split])[1]
         }, 
@@ -68,7 +60,7 @@ Node <- R6Class("Node", list(
       }
     },
 
-    computeChildren = function() {
+    computeChildren = function(X, Y) {
 
       if (self$stop.criterion.met) {
         # no further split is performed
@@ -78,14 +70,14 @@ Node <- R6Class("Node", list(
           stop("Please compute the split first via computeSplit().")
 
 
-        idx.left = which(self$X[self$subset.idx, self$split.feature, with = FALSE] <= self$split.value)
-        idx.right = which(self$X[self$subset.idx, self$split.feature, with = FALSE] > self$split.value)
+        idx.left = which(X[self$subset.idx, self$split.feature, with = FALSE] <= self$split.value)
+        idx.right = which(X[self$subset.idx, self$split.feature, with = FALSE] > self$split.value)
 
         idx.left = self$subset.idx[idx.left]
         idx.right = self$subset.idx[idx.right]
 
-        left.child = Node$new(id = 1, depth = self$depth + 1, X = self$X, Y = self$Y, subset.idx = idx.left, id.parent = self$id, child.type = "<=")
-        right.child = Node$new(id = 2, depth = self$depth + 1, X = self$X, Y = self$Y, subset.idx = idx.right, id.parent = self$id, child.type = ">")
+        left.child = Node$new(id = 1, depth = self$depth + 1, subset.idx = idx.left, id.parent = self$id, child.type = "<=")
+        right.child = Node$new(id = 2, depth = self$depth + 1, subset.idx = idx.right, id.parent = self$id, child.type = ">")
 
         self$children = list("left.child" = left.child, "right.child" = right.child)
       }
@@ -95,18 +87,9 @@ Node <- R6Class("Node", list(
 
 
 
-compute_tree = function(model, testdata, feature, objective, n.split, grid.size, addMean = FALSE) {
+compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL) {
 
   if (objective == "SS_L1") {
-    mymodel = makeS3Obj("mymodel", fun = function() return(model))
-    predict.mymodel = function(object, newdata) {
-      pred = predict(object$fun(), newdata = newdata)
-      pp = getPredictionSE(pred)
-      if(addMean == TRUE) pp = getPredictionResponse(pred)
-      return(pp)
-    }
-    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
-    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice", grid.size = grid.size)
 
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
@@ -116,19 +99,11 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
       sum(t(abs(t(y) - ypred)))
     } 
 
-    input.data = compute_data_for_ice_splitting(effect)
+    input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
   } 
+
   else if (objective == "SS_L2") {
-    mymodel = makeS3Obj("mymodel", fun = function() return(model))
-    predict.mymodel = function(object, newdata) {
-      pred = predict(object$fun(), newdata = newdata)
-      pp = getPredictionSE(pred)
-      if(addMean == TRUE) pp = getPredictionResponse(pred) - 2*pp
-      return(pp)
-    }
-    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
-    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice", grid.size = grid.size)
-    
+
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
       
@@ -136,19 +111,10 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
       sum(t((t(y) - ypred)^2))
     } 
     
-    input.data = compute_data_for_ice_splitting(effect)
+    input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
   }
   
   else if (objective == "SS_area") {
-    mymodel = makeS3Obj("mymodel", fun = function() return(model))
-    predict.mymodel = function(object, newdata) {
-      pred = predict(object$fun(), newdata = newdata)
-      pp = getPredictionSE(pred)
-      if(addMean == TRUE) pp = getPredictionResponse(pred)
-      return(pp)
-    }
-    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
-    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice", grid.size = grid.size)
     
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
@@ -158,20 +124,12 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
       sum((row_means - ypred)^2)
     } 
     
-    input.data = compute_data_for_ice_splitting(effect)
+    input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
+
   }
   
   else if (objective == "SS_area_med") {
-    mymodel = makeS3Obj("mymodel", fun = function() return(model))
-    predict.mymodel = function(object, newdata) {
-      pred = predict(object$fun(), newdata = newdata)
-      pp = getPredictionSE(pred)
-      if(addMean == TRUE) pp = getPredictionResponse(pred) - 2*pp
-      return(pp)
-    }
-    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
-    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice", grid.size = grid.size)
-    
+
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
       row_means = rowMeans(y) # area of individual ice curves
@@ -179,20 +137,11 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
       sum((row_means - ypred)^2)
     } 
     
-    input.data = compute_data_for_ice_splitting(effect)
+    input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
   }
   
   else if (objective == "SS_area_quant") {
-    mymodel = makeS3Obj("mymodel", fun = function() return(model))
-    predict.mymodel = function(object, newdata) {
-      pred = predict(object$fun(), newdata = newdata)
-      pp = getPredictionSE(pred)
-      if(addMean == TRUE) pp = getPredictionResponse(pred) - 2*pp
-      return(pp)
-    }
-    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
-    effect = FeatureEffect$new(predictor = predictor, feature = feature, method = "ice", grid.size = grid.size)
-    
+
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
       row_means = rowMeans(y) # area of individual ice curves
@@ -200,58 +149,77 @@ compute_tree = function(model, testdata, feature, objective, n.split, grid.size,
       sum(abs(row_means - ypred))
     } 
     
-    input.data = compute_data_for_ice_splitting(effect)
+    input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
   }
   
-  else if (objective == "SS_sd") {
-    mymodel = makeS3Obj("mymodel", fun = function() return(model))
-    predict.mymodel = function(object, newdata) {
-      pred = predict(object$fun(), newdata = newdata)
-      pp = getPredictionSE(pred)
-      return(pp)
-    }
-    predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
-    predictions = predictor$predict(testdata[, model$features])
+  # else if (objective == "SS_sd") {
+  #   mymodel = makeS3Obj("mymodel", fun = function() return(model))
+  #   predict.mymodel = function(object, newdata) {
+  #     pred = predict(object$fun(), newdata = newdata)
+  #     pp = getPredictionSE(pred)
+  #     return(pp)
+  #   }
+  #   predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
+  #   predictions = predictor$predict(testdata[, model$features])
     
-    # define objective
-    split.objective = function(y, x, requires.x = FALSE, ...) {
-      y$pred = y$pred
-      sum(abs(y$pred - median(y$pred)))
-    } 
-    split.feats = setdiff(model$features, feature)
-    input.data = list(X = setDT(testdata[,split.feats, drop = FALSE]), Y = setDT(predictions) )
-  }
+  #   # define objective
+  #   split.objective = function(y, x, requires.x = FALSE, ...) {
+  #     y$pred = y$pred
+  #     sum(abs(y$pred - median(y$pred)))
+  #   } 
+  #   split.feats = setdiff(model$features, feature)
+  #   input.data = list(X = setDT(testdata[,split.feats, drop = FALSE]), Y = setDT(predictions) )
+  # }
   
   else {
     stop(paste("Objective", objective, "is not supported."))
   } 
 
   # Initialize the parent node of the tree
-  parent = Node$new(id = 0, depth = 0, X = input.data$X, Y = input.data$Y, subset.idx = seq_len(nrow(input.data$X)))
+  parent = Node$new(id = 0, depth = 0, subset.idx = seq_len(nrow(input.data$X)))
   
   # Perform splitting for the parent
   tree = list(list(parent))
 
   for (depth in seq_len(n.split)) {
 
-    leaves = tree[[depth]]
+    if (!is.null(optimum)) {
 
-    tree[[depth + 1]] = list()
-    #browser()
-    for (node.idx in seq_along(leaves)) {
-
-      node.to.split = leaves[[node.idx]]
+      node.to.split = find_optimal_node(tree, optimum)
+      
+      tree[[depth + 1]] = list()
 
       if (!is.null(node.to.split)) {
-        node.to.split$computeSplit(split.objective, find_best_binary_split)
-        node.to.split$computeChildren()
+        node.to.split$computeSplit(input.data$X, input.data$Y, split.objective, find_best_binary_split)
+        node.to.split$computeChildren(input.data$X, input.data$Y)
 
         tree[[depth + 1]] = c(tree[[depth + 1]], node.to.split$children)        
+
       } else {
         tree[[depth + 1]] = c(tree[[depth + 1]], list(NULL, NULL))                
       }
+    } else {
+      
+      leaves = tree[[depth]]
+      tree[[depth + 1]] = list()
+
+      for (node.idx in seq_along(leaves)) {
+
+        node.to.split = leaves[[node.idx]]
+
+        if (!is.null(node.to.split)) {
+          node.to.split$computeSplit(input.data$X, input.data$Y, split.objective, find_best_binary_split)
+          node.to.split$computeChildren(input.data$X, input.data$Y)
+
+          tree[[depth + 1]] = c(tree[[depth + 1]], node.to.split$children)        
+        } else {
+          tree[[depth + 1]] = c(tree[[depth + 1]], list(NULL, NULL))                
+        }
+      }
     }
+
   }
+
   return(tree)
 }
 
@@ -474,27 +442,26 @@ plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, metho
 
 
 
-compute_data_for_ice_splitting = function(effect) {
+compute_data_for_ice_splitting = function(effect, testdata) {
   
   # effect:     effect objected outputted by iml 
 
   # Output: A data.frame that where each row corresponds to a ice curve 
 
-  df = effect$predictor$data$X
-  df$.id = seq_len(nrow(df))
+  df = setDT(testdata)
+  df$.id = seq_row(df)
   
   ice.feat = effect$feature.name
-  features = effect$predictor$data$feature.names
+  features = names(testdata)
 
   # Features we consider splitting 
   split.feats = setdiff(features, ice.feat)
   df.sub = df[, c(".id", split.feats), with = FALSE]  
-  
-  effects = data.table(effect$results)
-  #effects = merge(effeccompute_datats, df.sub, by = c(".id"))
 
-  Y = tidyr::spread(effects, ice.feat, .value)
-  Y = Y[, setdiff(colnames(Y), c(".type", ".id")), with = FALSE]
+  effectdata = effect$results
+  
+  Y = tidyr::spread(effectdata, ice.feat, .value)
+  Y = setDT(Y)[, setdiff(colnames(Y), c(".type", ".id")), with = FALSE]
   
   X = df[, split.feats, with = FALSE]
 
