@@ -58,8 +58,8 @@ Node <- R6Class("Node", list(
 
         tryCatch({
           split = split_parent_node(Y = self$Y[self$subset.idx, ], X = self$X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
-          self$split.feature = split$feature[split$best.split]
-          self$split.value = unlist(split$split.points[split$best.split])
+          self$split.feature = split$feature[split$best.split][1]
+          self$split.value = unlist(split$split.points[split$best.split])[1]
         }, 
         error = function(cond) {
           message(paste0("Min.node.size is reached in node ", self$id))
