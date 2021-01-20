@@ -2,14 +2,14 @@
 
 library(batchtools)
 
-source("R/LCBench/config.R")
+source("R/benchmarks/LCBench/config.R")
 
 lapply(packages, require, character.only = TRUE)
 
 
 # --- 1. SETUP REGISTRY ---
 
-reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/LCBench/config.R")
+reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/benchmarks/LCBench/config.R")
 
 # --- 2. ADD PROBLEMS, ALGORITHMS, EXPERIMENTS ---
 
