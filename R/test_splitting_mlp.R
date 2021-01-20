@@ -83,17 +83,25 @@ df = evaluate_results(reslist, optima = optima, plotpath = plotpath)
 if (!dir.exists(plotpath))
   dir.create(plotpath)
 
-p = ggplot(data = df, aes(x = objective, y = conf.rel)) + geom_boxplot(aes(fill = as.factor(depth))) + facet_grid(. ~ feature)
+p = ggplot(data = df, aes(x = objective, y = conf.rel)) + geom_boxplot(aes(fill = as.factor(depth)))  + facet_grid(. ~ feature)
 ggsave(file.path(plotpath, "conf_diff.png"), p, width = 12, height = 3)
 
 p = ggplot(data = df, aes(x = objective, y = conf.rel.opt)) + geom_boxplot(aes(fill = as.factor(depth))) + facet_grid(. ~ feature)
 ggsave(file.path(plotpath, "conf_opt_diff.png"), p, width = 12, height = 3)
 
-p = ggplot(data = df, aes(x = objective, y = neg_loglik)) + geom_boxplot(aes(fill = as.factor(depth))) + facet_grid(. ~ feature)
+df_sum = setDT(df)[, mean(source.neg_loglik), by = c("feature")]
+
+p = ggplot(data = df, aes(x = objective, y = neg_loglik)) + geom_boxplot(aes(fill = as.factor(depth))) 
+p = p + geom_hline(data = df_sum, aes(yintercept = V1))
+p = p + facet_grid(. ~ feature) 
 ggsave(file.path(plotpath, "neg_loglik.png"), p, width = 12, height = 3)
 
 p = ggplot(data = setDT(df)[feature != "momentum", ], aes(x = objective, y = gt.rel)) + geom_boxplot(aes(fill = as.factor(depth)))+ facet_grid(. ~ feature)
 ggsave(file.path(plotpath, "gt_rel.png"), p, width = 12, height = 3)
+
+
+# plot an example tree
+
 
 
 

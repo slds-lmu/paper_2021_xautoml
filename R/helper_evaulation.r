@@ -42,9 +42,9 @@ get_eval_measures = function(effect, node, model, pdp.feature, optimum, grid.siz
   
   pp.gt = marginal_effect(objective.groundtruth, pdp.feature, data, model, grid.size)
   
-  conf.diff = sum(pp$upper-pp$lower)
-  gt.diff.abs = sum(abs(pp.gt$mean-pp$mean))
-  gt.diff.sd = sd(pp.gt$mean-pp$mean)
+  conf.diff = sum(pp$upper - pp$lower)
+  gt.diff.abs = sum(abs(pp.gt$mean - pp$mean))
+  gt.diff.sd = sd(pp.gt$mean - pp$mean)
   
   # values around optimum
   pp["dist.opt"] = abs(pp[,pdp.feature]-optimum)
@@ -151,7 +151,7 @@ find_optimal_subset = function(testdata, split.criteria){
 
 
 # mlp separate until surrogate data problem fixed
-get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, method = "pdp_var_sd", plot = FALSE) {
+get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, method = "pdp_var_sd", plot = FALSE, alpha = 0.05) {
   
   res.ice = res.ice[which(res.ice$.id %in% idx),]
 
@@ -166,15 +166,15 @@ get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, met
   # Attention with computation of the sd - this needs to be adapted
   res.gt = setDT(gt.ice)[, .(mean = mean(mean)), by = pdp.feature] 
 
-  q = qnorm(1 - 0.05 / 2)
+  q = qnorm(1 - alpha / 2)
   res.pdp$lower = res.pdp$mean - q * res.pdp$sd
   res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
 
   p = NULL
 
   if (plot) {
-    p = ggplot(data = res.gt, aes_string(x = pdp.feature, y = "mean")) + geom_line(colour = "blue")
-    p = p + geom_ribbon(data = res.pdp, aes_string(x = pdp.feature, ymin = "lower", ymax = "upper"), alpha = 0.2) + geom_line(data = res.pdp, aes_string(x = pdp.feature, y = "mean"))
+    p = ggplot(data = res.gt, aes_string(x = pdp.feature, y = "mean")) + geom_line()
+    p = p + geom_ribbon(data = res.pdp, aes_string(x = pdp.feature, ymin = "lower", ymax = "upper"), fill = "blue", alpha = 0.2) + geom_line(data = res.pdp, aes_string(x = pdp.feature, y = "mean"), colour = "blue")
     p = p + geom_vline(data = optimum, aes_string(xintercept = pdp.feature), colour = "orange", lty = 2)
   }
 
@@ -182,7 +182,7 @@ get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, met
   pp = res.pdp
   pp.gt = res.gt
 
-  neg_loglik = sum(unlist(lapply(seq_row(pp), function(i) {
+  neg_loglik = mean(unlist(lapply(seq_row(pp), function(i) {
       - dnorm(pp.gt[i, ]$mean, mean = pp[i, ]$mean, sd = pp[i, ]$sd, log = TRUE) 
   })))
   
@@ -320,8 +320,8 @@ evaluate_results = function(reslist, plotpath = NULL, alpha = 0.05, optima) {
       res.pdp$lower = res.pdp$mean - q * res.pdp$sd
       res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
 
-      ymax = max(res.pdp$upper) + 0.01
-      ymin = min(res.pdp$lower) - 0.01
+      ymax = max(res.pdp$upper) + 0.02
+      ymin = min(res.pdp$lower) - 0.02
 
       # Get the ground-truth
       gt.pdp = res$gt.pdp
@@ -332,7 +332,7 @@ evaluate_results = function(reslist, plotpath = NULL, alpha = 0.05, optima) {
         tree = res$trees[[objective]]
 
         source_node = tree[[1]][[1]]
-        eval.source_node = get_eval_measures_mlp(res.ice, gt.ice, source_node$subset.idx, feature, optimum[feature], plot = TRUE)
+        eval.source_node = get_eval_measures_mlp(res.ice, gt.ice, source_node$subset.idx, feature, optimum[feature], plot = plot, alpha = alpha)
         
         if (plot) {
           plist = list()
@@ -345,7 +345,7 @@ evaluate_results = function(reslist, plotpath = NULL, alpha = 0.05, optima) {
           
           subtree = tree[seq_len(depth)]
           node = find_optimal_node(subtree, optimum)
-          eval.opt = get_eval_measures_mlp(res.ice, gt.ice, node$subset.idx, feature, optimum[feature], plot = TRUE)
+          eval.opt = get_eval_measures_mlp(res.ice, gt.ice, node$subset.idx, feature, optimum[feature], plot = plot)
 
           if (!is.null(plotpath)) {
             plist[[depth]] = eval.opt$p + ylim(c(ymin, ymax))
@@ -378,6 +378,7 @@ evaluate_results = function(reslist, plotpath = NULL, alpha = 0.05, optima) {
   df$gt.rel = (df$source.gt.diff.abs - df$gt.diff.abs) / df$source.gt.diff.abs
   df$conf.rel.opt = (df$source.conf.diff.opt - df$conf.diff.opt) / df$source.conf.diff.opt
   df$gt.rel.opt = (df$source.gt.diff.abs.opt - df$gt.diff.abs.opt) / df$source.gt.diff.abs.opt
+  df$neg_loglik.rel = (df$source.neg_loglik - df$neg_loglik) / df$source.neg_loglik
 
   return(df)
 }
