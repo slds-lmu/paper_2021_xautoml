@@ -459,6 +459,7 @@ compute_data_for_ice_splitting = function(effect, testdata) {
   df.sub = df[, c(".id", split.feats), with = FALSE]  
 
   effectdata = effect$results
+  effectdata = effectdata[effectdata$.type=="ice",]
   
   Y = tidyr::spread(effectdata, ice.feat, .value)
   Y = setDT(Y)[, setdiff(colnames(Y), c(".type", ".id")), with = FALSE]
