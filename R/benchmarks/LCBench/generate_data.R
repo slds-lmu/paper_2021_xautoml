@@ -45,7 +45,7 @@ tab = summarizeExperiments(
 probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "sylvine")
 
 # Submit MBO runs 
-tosubmit = tab[problem %in% probs, ]
+tosubmit = tab # [problem %in% probs, ]
 tosubmit = tosubmit[algorithm == "mlrmbo", ]
 tosubmit = ijoin(tosubmit, findNotDone())
 # Chunking because each experiment only needs ~ 45 minutes
