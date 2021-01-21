@@ -39,6 +39,7 @@ resources.serial = list(
 )
 
 reg = loadRegistry(registry_name, writeable = TRUE)
+reg$source = "R/benchmarks/LCBench/config.R"
 tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem", "lambda"))
 
@@ -50,7 +51,7 @@ tosubmit = tosubmit[algorithm == "mlrmbo", ]
 tosubmit = ijoin(tosubmit, findNotDone())
 # Chunking because each experiment only needs ~ 45 minutes
 tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 30)
-submitJobs(tosubmit, resources = resources.serial)
+submitJobs(tosubmit[chunk == 1, ], resources = resources.serial)
 
 # Submit randomsearch runs 
 tosubmit = tab[problem %in% probs, ]

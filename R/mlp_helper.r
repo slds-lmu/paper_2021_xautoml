@@ -2,8 +2,8 @@
 
 get_data <- function(path, folder_mlp, lambda){
   data.list = lapply(folder_mlp, function(folder) {
-    data = readRDS(file.path(path, folder, paste0("mlrmbo_run_lambda_", lambda, "_30repls.rds")))
-    surrogate_model = readRDS(file.path(path, folder, "surrogate.rds"))
+    data = readRDS(file.path(path, folder, "1_1_mlrmbo_runs/", paste0("mlrmbo_run_lambda_", lambda, "_30repls.rds")))
+    surrogate_model = readRDS(file.path(path, folder, "0_objective/surrogate.rds"))
 
     data
   })
@@ -48,8 +48,8 @@ get_optima <- function(data){
 
 get_objective <- function(path, folder_mlp){
   data.list = lapply(folder_mlp, function(folder) {
-    surrogate_model = readRDS(file.path(path, folder, "surrogate.rds"))
-    obj = readRDS(file.path(path, folder, "obj.rds"))
+    surrogate_model = readRDS(file.path(path, folder, "0_objective", "surrogate.rds"))
+    obj = readRDS(file.path(path, folder, "0_objective", "obj.rds"))
     list(
       obj = obj,
       surrogate_model = surrogate_model$result[[1]]$model_val_balanced_acc
