@@ -66,7 +66,7 @@ if (file.exists(testdata_path)) {
 }
 
 # Compute the ground truth data (we compute it once, and later on just store it)
-gtdata = compute_ground_truth_pdps(obj = obj, path = path, dataset = dataset, features = features, testdata = testdata, testdata.size = testdata.size, grid.size = grid.size)
+gtdata = compute_ground_truth_pdps(obj = obj, path = path, dataset = dataset, features = features, testdata = testdata, testdata.size = testdata.size, grid.size = grid.size, optima = optima)
 
 storepath = file.path(path, dataset, paste0("effects_and_trees2.rds"))
 

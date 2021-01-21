@@ -15,7 +15,7 @@ marginal_effect = function(obj, feature, data, model, grid.size) {
     return(res)
 }
 
-marginal_effect_mlp = function(obj, feature, data, all.features, grid.size, method = "pdp+ice") {
+marginal_effect_mlp = function(obj, feature, data, all.features, grid.size, optima, method = "pdp+ice") {
         
     mymodel = makeS3Obj("mymodel", fun = function(data) {
         res = lapply(seq_row(data), function(i) {
@@ -30,11 +30,15 @@ marginal_effect_mlp = function(obj, feature, data, all.features, grid.size, meth
                         
     predictor = Predictor$new(model = mymodel, data = data[, all.features], predict.function = predict.mymodel)
     effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = method)
+    
 
     res = effects$results
     names(res)[1:2] = c(feature, "mean")
-                        
-    return(res)
+    
+    optimum = as.data.frame(rbindlist(optima)[, ..all.features])
+    res.optimum = data.frame(feature = optimum[,feature], "mean" = effects$predict(optimum, extrapolate = TRUE), "run" = 1:nrow(optimum))
+    names(res.optimum)[1] = c(feature)                    
+    return(list(res, res.optimum))
 }
 
 
