@@ -80,17 +80,40 @@ compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.siz
 	  saveRDS(testdata, testdata_path)
 	}
 
-	# TODO: Adapt with regards to the optima that need to be returned
+	# Because we want to evaluate the PDP in particular at the location of the optimum, 
+	# we need to read in the optimal values that were found during optimization
 
-	st = Sys.time()
+	lambdas = c(0.5, 1, 2, 10)
+
+	optima = lapply(lambdas, function(lambda) {
+		path = "data/runs/mlp_new/"
+		folder_mlp = strsplit(instance, "/")[[1]][4]
+		data = get_data(path, folder_mlp, lambda = lambda)
+		all_optima = get_optima(data)[[folder_mlp]]
+
+		all_optima = do.call(rbind, all_optima)
+		all_optima$iter = seq_len(nrow(all_optima))
+
+		return(all_optima)
+	})
+
+	optima = do.call(rbind, optima)
+	optima$method = paste0("mlrmbo_lambda", optima$lambda)
+
+	surr_optima = readRDS(file.path(instance, "0_objective/surrogate_optima.rds"))$randomforest$x.min[, features]
+	surr_optima$method = "theoretical_optimum"
+
+	optima = dplyr::bind_rows(optima, surr_optima)
+
+	start_t = Sys.time()
     gtdata = lapply(features, function(feature) {
-      marginal_effect_mlp(obj = obj, feature = feature, data = testdata, all.features = features, grid.size = grid.size, method = "pdp+ice")
+      marginal_effect_mlp(obj = obj, feature = feature, data = testdata, all.features = features, grid.size = grid.size, optima = optima, method = "pdp+ice")
     })
-    et = Sys.time()
+    end_t = Sys.time()
 
     names(gtdata) = features
 
-    print(et - st)
+    print(end_t - start_t)
 
 
     return(list(

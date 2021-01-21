@@ -31,13 +31,14 @@ marginal_effect_mlp = function(obj, feature, data, all.features, grid.size, opti
     predictor = Predictor$new(model = mymodel, data = data[, all.features], predict.function = predict.mymodel)
     effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = method)
     
-
     res = effects$results
     names(res)[1:2] = c(feature, "mean")
     
-    optimum = as.data.frame(rbindlist(optima)[, ..all.features])
-    res.optimum = data.frame(feature = optimum[,feature], "mean" = effects$predict(optimum, extrapolate = TRUE), "run" = 1:nrow(optimum))
-    names(res.optimum)[1] = c(feature)                    
+    optimum = as.data.frame(optima[, ..all.features])
+    res.optimum = data.frame(feature = optimum[, feature], "mean" = effects$predict(optimum, extrapolate = TRUE), "run" = c(rep(1:30, 4), 1))
+    names(res.optimum)[1] = c(feature)   
+    res.optimum = cbind(optima[, c("method", "iter")], res.optimum)
+
     return(list(res, res.optimum))
 }
 
