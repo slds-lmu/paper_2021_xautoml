@@ -9,7 +9,7 @@ lapply(packages, require, character.only = TRUE)
 
 # --- 1. SETUP REGISTRY ---
 
-reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/benchmarks/LCBench/config.R")
+reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "compute_ground_truth_pdp_config")
 
 # --- 2. ADD PROBLEMS, ALGORITHMS, EXPERIMENTS ---
 

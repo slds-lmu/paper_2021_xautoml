@@ -43,8 +43,7 @@ lapply(packages, library, character.only = TRUE)
 
 TASK_LOCATION = "data/runs/mlp_new/"
 
-tasks = list.dirs(TASK_LOCATION, full.names = FALSE)
-tasks = tasks[2:length(tasks)]
+tasks = list.dirs(TASK_LOCATION, full.names = FALSE, recursive = FALSE)
 
 pdes = data.table(tasks = tasks)
 
