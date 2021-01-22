@@ -9,14 +9,14 @@ lapply(packages, require, character.only = TRUE)
 
 # --- 1. SETUP REGISTRY ---
 
-reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "compute_ground_truth_pdp_config")
+reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/benchmarks/LCBench/compute_ground_truth_pdp_config.R")
 
 # --- 2. ADD PROBLEMS, ALGORITHMS, EXPERIMENTS ---
 
 for (i in seq_len(length(tasks))) {
   addProblem(
     name = tasks[i], 
-    data = paste(TASK_LOCATION, tasks[i], sep = "/"), 
+    data = file.path(TASK_LOCATION, tasks[i]), 
     reg = reg
   )
 }
@@ -28,7 +28,7 @@ for (i in 1:length(ALGORITHMS)) {
 addExperiments(
   reg = reg, 
   algo.designs = ades, 
-  repls = 30L)
+  repls = 1L)
 
 
 resources.serial = list(
@@ -37,9 +37,8 @@ resources.serial = list(
 )
 
 reg = loadRegistry(registry_name, writeable = TRUE)
-reg$source = "R/benchmarks/LCBench/config.R"
 tab = summarizeExperiments(
-  by = c("job.id", "algorithm", "problem", "lambda"))
+  by = c("job.id", "algorithm", "problem"))
 
 probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "sylvine")
 
