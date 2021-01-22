@@ -66,13 +66,21 @@ for (prob in unique(res$problem)) {
 library(mlr)
 library(smoof)
 
+probs = unique(tab$problem)
 
-probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "sylvine")
+parallelMap::parallelStartBatchtools(bt.resources = list(
+    walltime = 1 * 3600,
+    memory = 2048,
+    max.concurrent.jobs = 30),
+    logging = FALSE)
 
-for (prob in probs) {
+
+res = parallelMap::parallelLapply(probs, function(prob) {
+
+  print(prob)
   
-  surr_val = readRDS(file.path("data/runs/mlp", prob, "surrogate.rds"))$result[[1]]$model_val_balanced_acc
-  lcbench = read.csv2(file.path("data/runs/mlp", prob, "lcbench2000.csv"), sep = ",")
+  surr_val = readRDS(file.path("data/runs/mlp_new", prob, "0_objective", "surrogate.rds"))$result[[1]]$model_val_balanced_acc
+  lcbench = read.csv2(file.path("data/runs/mlp_new", prob, "0_objective", "lcbench2000.csv"), sep = ",")
  
   ps = makeParamSet(
           # do early stopping instead for the bigger datasets
@@ -145,7 +153,9 @@ for (prob in probs) {
     local.opt.values = y.min
   )
 
-  saveRDS(res, file.path("data/runs/mlp_new", prob, "surrogate_optima.rds"))
-  saveRDS(obj, file.path("data/runs/mlp_new", prob, "obj.rds"))
-}
+  saveRDS(res, file.path("data/runs/mlp_new", prob, "0_objective", "surrogate_optima.rds"))
+  saveRDS(obj, file.path("data/runs/mlp_new", prob, "0_objective", "obj.rds"))
+
+  return(list(res = res, obj = obj))
+})
 
