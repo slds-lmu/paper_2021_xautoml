@@ -60,9 +60,6 @@ compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.siz
 	source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/pdp_helpers2.R")
 	source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/mlp_helper.r")
 
-	print(instance)
-	print(data)
-
   	surr_val = readRDS(file.path(instance, "0_objective", "surrogate.rds"))$result[[1]]$model_val_balanced_acc
   	lcbench = read.csv2(file.path(instance, "0_objective", "lcbench2000.csv"), sep = ",")
  
@@ -140,7 +137,7 @@ compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.siz
 
 	optima = lapply(lambdas, function(lambda) {
 		path = "data/runs/mlp_new/"
-		folder_mlp = strsplit(instance, "/")[[1]][4]
+		folder_mlp = strsplit(instance, "//")[[1]][2]
 		data = get_data(path, folder_mlp, lambda = lambda)
 		all_optima = get_optima(data)[[folder_mlp]]
 
