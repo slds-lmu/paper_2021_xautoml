@@ -178,7 +178,7 @@ compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.siz
 
 
 ALGORITHMS = list(
-    compute_ground_truth_pdp = list(fun = compute_ground_truth_pdp, ades = data.table(grid.size = 5, testdata.size = 100))
+    compute_ground_truth_pdp = list(fun = compute_ground_truth_pdp, ades = data.table(grid.size = 20, testdata.size = 1000))
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)
