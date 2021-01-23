@@ -96,10 +96,14 @@ compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL)
 
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
-      require(Rfast)
-      #y = y*100
-      ypred = Rfast::colMedians(as.matrix(y))
-      sum(t(abs(t(y) - ypred)))
+
+      y = as.data.table(y)
+      cols = names(y)
+
+      ypred = copy(y)
+      ypred = ypred[, (cols) := (lapply(.SD, median)), .SDcols = cols]
+
+      sum(abs(y - ypred))
     } 
 
     input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
