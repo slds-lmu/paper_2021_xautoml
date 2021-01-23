@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "TEST" # TODO 
+SETUP = "REAL"  
 
 switch(SETUP, 
 	"TEST" = {
@@ -55,7 +55,6 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/mlp_helper.r")
 	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/helper_evaluation.r")
 
-	# TODO
 	source("R/helper_evaluation.r")
 	source("R/mlp_helper.r")
 	source("R/tree_splitting.R")
@@ -74,7 +73,6 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	features = models[[1]]$features
 
 	# Read in the ground-truth 
-	# TODO: check if we perform the evaluation in this script! 
 	gtdata = readRDS(file.path(instance, "2_2_groundtruth_pdps", paste0("gtpdp_", grid.size, "_", testdata.size, ".rds")))$pdp_ice_groundtruth
 
 	# gtdata = lapply(gtdata, function(el) {
@@ -97,7 +95,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	start_t = Sys.time()
 	reslist = compute_trees(
 		n.split = n.splits, 
-		models = models[1], # TODO
+		models = models, 
 		features = features, 
 		testdata = testdata, 
 		grid.size = grid.size, 
@@ -105,9 +103,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	) 
     end_t = Sys.time()
 
-
 	eval = evaluate_results(reslist, mbo_optima, gtdata)
-
 
     return(list(
     	reslist = reslist, 
@@ -120,7 +116,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 
 ALGORITHMS = list(
     perform_tree_splitting = list(fun = perform_tree_splitting, 
-    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 2, lambda = 1, objective = c("SS_sd", "SS_area", "SS_L1")))
+    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 7, lambda = 1, objective = c("SS_sd", "SS_area", "SS_L1", "SS_L2")))
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)
