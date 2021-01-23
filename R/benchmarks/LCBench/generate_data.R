@@ -109,6 +109,7 @@ for (prob in probs) {
 
   for (lamb in unique(res[algorithm == "mlrmbo", ]$lambda)) {
     res_tostore = res[algorithm == "mlrmbo" & lambda == lamb, ]
+   
     saveRDS(res_tostore, file.path("data/runs/mlp_new", prob, "1_1_mlrmbo_runs", paste0("mlrmbo_run_lambda_", lamb, "_30repls.rds")))
   }
 

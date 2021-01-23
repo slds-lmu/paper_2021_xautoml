@@ -36,16 +36,21 @@ resources.serial = list(
   clusters = "serial", max.concurrent.jobs = 1000L # get name from lrz homepage)
 )
 
-reg = loadRegistry(registry_name, writeable = TRUE)
+# We want to submit the ones that are completed already 
+reg_other = loadRegistry("results/mlp_mlrmbo_registry_fixed_initdes", writeable = FALSE)
 tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem"))
+tab = ijoin(tab, findDone(reg = reg_other))
+tab = table(tab$problem) >= 120
+probs = names(tab)[tab]
 
-probs = c("blood-transfusion-service-center", "kc1", "numerai28.6", "phoneme", "sylvine")
+source("R/benchmarks/LCBench/compute_ground_truth_pdp_config.R")
+
+reg = loadRegistry(registry_name, writeable = TRUE)
+tab = summarizeExperiments(
+  by = c("job.id", "algorithm", "problem"), reg = reg)
 
 # Submit MBO runs 
-tosubmit = tab # [problem %in% probs, ]
-tosubmit = tosubmit[algorithm == "mlrmbo", ]
+tosubmit = tab[problem %in% probs, ]
 tosubmit = ijoin(tosubmit, findNotDone())
-# Chunking because each experiment only needs ~ 45 minutes
-tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10)
-submitJobs(tosubmit, resources = resources.serial)
+submitJobs(4, resources = resources.serial)

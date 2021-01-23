@@ -122,8 +122,7 @@ randomsearch = function(data, job, instance
     # algorithm-specific parameters
     ) {
 
-	lcbench_data = read.csv2(file.path(instance, "lcbench2000.csv"), sep = ",")
-	surrogate_data = readRDS(file.path(instance, "surrogate.rds"))
+	surrogate_data = readRDS(file.path(instance, "0_objective/surrogate.rds"))
 	surr_val = surrogate_data$result[[1]]$model_val_balanced_acc[[1]]
 	surr_test = surrogate_data$result[[1]]$model_test_balanced_acc[[1]]
 
@@ -143,7 +142,7 @@ randomsearch = function(data, job, instance
 	  	x = as.data.frame(x)
 		y = predict(surr_val, newdata = x)$data$response
 
-		attr(y, "extras") = list(test_mmce = predict(surr_test, newdata = x)$data$response)
+		attr(y, "extras") = list(test_performance = predict(surr_test, newdata = x)$data$response)
 		return(1 - y / 100)
 	  },
 	  par.set = ps,
@@ -152,48 +151,28 @@ randomsearch = function(data, job, instance
 	  minimize = TRUE
 	)
 
-	n = 5000
-	train_size = c(200, 2000)
-	test_ids = seq(max(train_size) + 1, n)
+	ctrl = makeMBOControl(store.model.at = 1:201)
+	ctrl = setMBOControlTermination(ctrl, max.evals = 201, time.budget = RUNTIME_MAX)
 
-	# set.seed(1234)
-	des = generateDesign(n = n, par.set = ps, fun = lhs::randomLHS)
+	set.seed(1234)
+	des = generateRandomDesign(n = 200, par.set = ps)
 
-	ctrl = makeMBOControl(store.model.at = seq_len(train_size[2]))
-	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB())
+    start_t = Sys.time()
+	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
+    end_t = Sys.time()
 
-	# could write a lapply here, but I guess its fine
-	ctrl_1 = setMBOControlTermination(ctrl, max.evals = train_size[1] - 1, time.budget = RUNTIME_MAX)
-	ctrl_2 = setMBOControlTermination(ctrl, max.evals = train_size[2] - 1, time.budget = RUNTIME_MAX)
+    opdf = as.data.frame(res$opt.path)
+    opdf = opdf[seq_len(nrow(opdf) - 1), ]
 
-	mbo_1 = mbo(obj, design = des[seq_len(train_size[1]), ], control = ctrl_1, show.info = TRUE)
-	mbo_2 = mbo(obj, design = des[seq_len(train_size[2]), ], control = ctrl_2, show.info = TRUE)
-
-	train_data = list(as.data.frame(mbo_1$opt.path), as.data.frame(mbo_2$opt.path))
-	models = list(mbo_1$models[[1]], mbo_2$models[[1]])
-
-	df_test = des[test_ids, ]
-	df_test$y = apply(df_test, 1, function(x) obj(trafoValue(as.list(x), par = ps)))
-
-	perf = mapply(function(mod, td) {
-		df_train = td[, c(getParamIds(getParamSet(obj)), "y")]
-
-		pred_train = predict(mod, newdata = df_train)
-		pred_test = predict(mod, newdata = df_test)
-
-		c(mae_train = performance(pred_train, mae), mae_test = performance(pred_test, mae))
-	}, models, train_data)
-
-	perf = as.data.frame(t(perf))
-	rownames(perf) = c("model200", "model2000")
+    models = res$models
+    
+    models = models[1]
+    res$final.opt.state = NULL
 
     return(list(
-    	lcbench_data = lcbench_data, 
-    	surrogate_on_lcbench_GT = surr_val,
-    	train_data_randomLHS = train_data,
-    	test_data_randomLHS = df_test,
-    	models_on_randomLHS = models, 
-    	perf_on_test_data_randomLHS = perf
+    	opt.path = opdf, 
+    	models = models, 
+    	runtime = as.integer(end_t) - as.integer(start_t)
     	)
     )
 }
