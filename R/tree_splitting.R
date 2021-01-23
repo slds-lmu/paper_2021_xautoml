@@ -170,7 +170,7 @@ compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL)
       sum(abs(y - median(y)))
     } 
 
-    split.feats = setdiff(model$features, feature)
+    split.feats = setdiff(model$features, pdp.feat)
     input.data = list(X = X[, ..split.feats, drop = FALSE], Y = Y)
   }
   
