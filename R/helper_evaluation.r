@@ -69,10 +69,12 @@ find_optimal_node = function(tree, optimum){
     split.feature = node$split.feature
     split.value = node$split.value
 
-    if(optimum[split.feature] <= split.value){
-      node = node$children$left.child
-    } else {
-      node = node$children$right.child
+    if (!is.null(split.value) & !is.null(split.value) & optimum[split.feature]) {
+      if(optimum[split.feature] <= split.value){
+        node = node$children$left.child
+      } else {
+        node = node$children$right.child
+      }
     }
   }
 
