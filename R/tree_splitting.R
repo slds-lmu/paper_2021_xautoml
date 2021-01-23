@@ -248,7 +248,7 @@ compute_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, o
 
 
 
-compute_trees = function(n.split, models, features, optima, testdata, gtdata, objectives = c("SS_L2", "SS_area", "SS_sd")) {
+compute_trees = function(n.split, models, features, optima, testdata, objectives = c("SS_L2", "SS_area", "SS_sd")) {
   
   # Compute trees for a list of models and a list of objectives on a fixed dataset.
 
@@ -261,7 +261,7 @@ compute_trees = function(n.split, models, features, optima, testdata, gtdata, ob
     model = models[[i]]
     optimum = optima[i, ]
 
-    results_for_features = lapply(features, function(feature) {
+    results_for_features = lapply(features[1:2], function(feature) {
 
       # Compute all ice curves
       mymodel = makeS3Obj("mymodel", fun = function() return(model))

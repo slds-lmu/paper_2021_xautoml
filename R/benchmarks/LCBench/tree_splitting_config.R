@@ -103,7 +103,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 		features = features, 
 		optima = mbo_optima, 
 		testdata = testdata, 
-		objectives = objectives
+		objective = objective
 	) 
     end_t = Sys.time()
 
