@@ -43,6 +43,8 @@ Node <- R6Class("Node", list(
 
     computeSplit = function(X, Y, objective, optimizer, min.split = 10) {
       
+      require("customtrees")
+
       if (length(self$subset.idx) < min.split) {
         self$stop.criterion.met = TRUE
       } else {
@@ -50,7 +52,7 @@ Node <- R6Class("Node", list(
         self$objective.value = objective(y = Y[self$subset.idx, ], x = X[self$subset.idx, ])
 
         tryCatch({
-          split = customtrees::split_parent_node(Y = Y[self$subset.idx, ], X = X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
+          split = split_parent_node(Y = Y[self$subset.idx, ], X = X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
           self$split.feature = split$feature[split$best.split][1]
           self$split.value = unlist(split$split.points[split$best.split])[1]
         }, 
@@ -153,24 +155,24 @@ compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL)
     input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
   }
   
-  # else if (objective == "SS_sd") {
-  #   mymodel = makeS3Obj("mymodel", fun = function() return(model))
-  #   predict.mymodel = function(object, newdata) {
-  #     pred = predict(object$fun(), newdata = newdata)
-  #     pp = getPredictionSE(pred)
-  #     return(pp)
-  #   }
-  #   predictor = Predictor$new(model = mymodel, data = testdata[, model$features], predict.function = predict.mymodel)
-  #   predictions = predictor$predict(testdata[, model$features])
+  else if (objective == "SS_sd") {
+
+    pdp.feat = effect_sd$feature.name
+    split.feats = setdiff(names(testdata), pdp.feat)
+
+    # The ys are the predictions (in this case, the standard deviation)
+    X = setDT(effect_sd$predictor$data$X)
+    Y = setDT(effect_sd$predictor$predict(X))
     
-  #   # define objective
-  #   split.objective = function(y, x, requires.x = FALSE, ...) {
-  #     y$pred = y$pred
-  #     sum(abs(y$pred - median(y$pred)))
-  #   } 
-  #   split.feats = setdiff(model$features, feature)
-  #   input.data = list(X = setDT(testdata[,split.feats, drop = FALSE]), Y = setDT(predictions) )
-  # }
+    # define objective
+    split.objective = function(y, x, requires.x = FALSE, ...) {
+      y = y$pred
+      sum(abs(y - median(y)))
+    } 
+
+    split.feats = setdiff(model$features, feature)
+    input.data = list(X = X[, ..split.feats, drop = FALSE], Y = Y)
+  }
   
   else {
     stop(paste("Objective", objective, "is not supported."))
@@ -238,6 +240,68 @@ compute_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, o
       pp.gt = marginal_effect(objective.gt, pdp.feature, data, model, grid.size)
 
     return(list(pdp_data = pp, pdp_groundtruth_data = pp.gt))
+}
+
+
+
+compute_trees = function(n.split, models, features, optima, testdata, gtdata, objectives = c("SS_L2", "SS_area", "SS_sd")) {
+  
+  # Compute trees for a list of models and a list of objectives on a fixed dataset.
+
+  reslist = list()
+
+  for (i in seq_along(models)) {
+
+    print(paste("Model number", i))
+
+    model = models[[i]]
+    optimum = optima[i, ]
+
+    results_for_features = lapply(features, function(feature) {
+
+      # Compute all ice curves
+      mymodel = makeS3Obj("mymodel", fun = function() return(model))
+      
+      predict.mymodel = function(object, newdata) {
+        pred = predict(object$fun(), newdata = newdata)
+        pp = getPredictionSE(pred)
+
+        return(pp)
+      }
+
+      predictor = Predictor$new(model = mymodel, data = as.data.frame(testdata)[, model$features], predict.function = predict.mymodel)
+      effect_sd = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
+      
+      predictor = Predictor$new(model = model, data = as.data.frame(testdata)[, model$features])
+      effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
+      
+      # Evaluation at optimum
+      effect_optimum = data.frame(feature = optimum[, feature], "mean" = effect_mean$predict(optimum, extrapolate = TRUE), "sd" = effect_sd$predict(optimum, extrapolate = TRUE))
+      names(effect_optimum)[1] = c(feature)   
+      #effect_optimum = cbind(optimum[, c("method", "iter")], effect_optimum)
+      
+      effect_sd_d = setDT(effect_sd$results)
+      names(effect_sd_d)[2] = "sd"
+      effect_mean_d = setDT(effect_mean$results)
+      names(effect_mean_d)[2] = "mean"
+
+      effects_merged = batchtools::ijoin(effect_sd_d, effect_mean_d, by = c(feature, ".type", ".id"))
+
+      sf = c(feature, "mean", "sd", ".id")
+      res.pdp = effects_merged[.type == "pdp", ..sf]
+      res.ice = effects_merged[.type == "ice", ..sf]
+
+      trees = lapply(objectives, function(objective) {
+        compute_tree(effect = effect_sd, testdata = testdata, objective = objective, n.split = n.split) 
+      })
+
+      list(effects = effects_merged, res.pdp = res.pdp, res.ice = res.ice, res.opt = effect_optimum, trees = trees)
+    })
+
+    reslist[[i]] = results_for_features
+  }
+
+  reslist
 }
 
 

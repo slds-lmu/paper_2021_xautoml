@@ -159,3 +159,4 @@ res = parallelMap::parallelLapply(probs, function(prob) {
   return(list(res = res, obj = obj))
 })
 
+

@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "TEST"
+SETUP = "TEST" # TODO 
 
 switch(SETUP, 
 	"TEST" = {
@@ -50,15 +50,22 @@ pdes = data.table(tasks = tasks)
 
 # --- 2. ALGORITHM DESIGN ---
 
-perform_tree_splitting = function(data, job, instance, grid.size, testdata.size, objective, n.splits, lambda) {
+perform_tree_splitting = function(data, job, instance, grid.size, testdata.size, n.splits, lambda, objectives) {
 
-	source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/mlp_helper.r")
-	source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/helper_evaluation.r")
+	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/mlp_helper.r")
+	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/helper_evaluation.r")
+
+	# TODO
+	source("R/helper_evaluation.r")
+	source("R/mlp_helper.r")
+	source("R/tree_splitting.R")
 
 	# Get all ground-truth information
 	obj = readRDS(file.path(instance, "0_objective", "obj.rds"))$obj
   	surr_val = readRDS(file.path(instance, "0_objective", "surrogate.rds"))$result[[1]]$model_val_balanced_acc
 	ps = getParamSet(obj)
+
+	print(instance)
 
 	# Get the model we want to perform our analysis on 
 	rundata = readRDS(file.path(instance, "1_1_mlrmbo_runs", paste0("mlrmbo_run_lambda_", lambda, "_30repls.rds")))
@@ -68,7 +75,8 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	})
 	features = models[[1]]$features
 
-	# Read in the ground-truth
+	# Read in the ground-truth 
+	# TODO: check if we perform the evaluation in this script! 
 	gtdata = readRDS(file.path(instance, "2_2_groundtruth_pdps", paste0("gtpdp_", grid.size, "_", testdata.size, ".rds")))$pdp_ice_groundtruth
 	gtdata = lapply(gtdata, function(el) {
 		elt = el
@@ -77,10 +85,10 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	})
 
 	# Found optimal values for the different mbo runs 
-	path = "data/runs/mlp_new/"
-	folder_mlp = strsplit(instance, "/")[[1]][4]
-	mbo_runs = get_data(path, folder_mlp, lambda = lambda)
-	mbo_optima = get_optima(mbo_runs)[[folder_mlp]]
+	mbo_runs = readRDS(file.path(instance, "1_1_mlrmbo_runs/", paste0("mlrmbo_run_lambda_", lambda, "_30repls.rds")))
+	mbo_optima = lapply(mbo_runs$result, function(res) {
+		res$opt.path[which.min(res$opt.path$y), ]
+	})
 
 	mbo_optima = do.call(rbind, mbo_optima)
 	mbo_optima$iter = seq_len(nrow(mbo_optima))
@@ -89,7 +97,14 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	testdata = readRDS(file.path(instance, "2_1_testdata", paste0("testdata_", testdata.size, ".rds")))
 
 	start_t = Sys.time()
-	reslist = compute_trees(n.split = n.splits, models = models[1:2], features = features, optima = mbo_optima, testdata = testdata)
+	reslist = compute_trees(
+		n.split = n.splits, 
+		models = models[1:2], # TODO
+		features = features, 
+		optima = mbo_optima, 
+		testdata = testdata, 
+		objectives = objectives
+	) 
     end_t = Sys.time()
 
 
@@ -102,7 +117,8 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 
 
 ALGORITHMS = list(
-    compute_ground_truth_pdp = list(fun = compute_ground_truth_pdp, ades = data.table(grid.size = 20, testdata.size = 1000))
+    perform_tree_splitting = list(fun = perform_tree_splitting, 
+    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 2, lambda = 1, objectives = c("SS_sd", "SS_area", "SS_L1")))
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)

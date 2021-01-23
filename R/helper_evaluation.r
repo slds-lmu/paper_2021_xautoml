@@ -206,65 +206,6 @@ get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, met
 }
 
 
-compute_trees = function(n.split, models, features, optima, testdata, gtdata) {
-  
-  objectives = c("SS_L2","SS_area")
-
-  reslist = list()
-
-  for (i in seq_along(models)) {
-
-    print(paste("Model number", i))
-
-    model = models[[i]]
-    optimum = optima[i, ]
-
-    results_for_features = lapply(features, function(feature) {
-
-      # Compute all ice curves
-      mymodel = makeS3Obj("mymodel", fun = function() return(model))
-      
-      predict.mymodel = function(object, newdata) {
-        pred = predict(object$fun(), newdata = newdata)
-        pp = getPredictionSE(pred)
-
-        return(pp)
-      }
-
-      predictor = Predictor$new(model = mymodel, data = as.data.frame(testdata)[, model$features], predict.function = predict.mymodel)
-      effect_sd = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
-      
-      predictor = Predictor$new(model = model, data = as.data.frame(testdata)[, model$features])
-      effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
-      
-      # Evaluation at optimum
-      effect_optimum = data.frame(feature = optimum[, feature], "mean" = effect_mean$predict(optimum, extrapolate = TRUE), "sd" = effect_sd$predict(optimum, extrapolate = TRUE))
-      names(effect_optimum)[1] = c(feature)   
-      #effect_optimum = cbind(optimum[, c("method", "iter")], effect_optimum)
-      
-      effect_sd_d = setDT(effect_sd$results)
-      names(effect_sd_d)[2] = "sd"
-      effect_mean_d = setDT(effect_mean$results)
-      names(effect_mean_d)[2] = "mean"
-
-      effects_merged = batchtools::ijoin(effect_sd_d, effect_mean_d, by = c(feature, ".type", ".id"))
-
-      sf = c(feature, "mean", "sd", ".id")
-      res.pdp = effects_merged[.type == "pdp", ..sf]
-      res.ice = effects_merged[.type == "ice", ..sf]
-
-      trees = lapply(objectives, function(objective) {
-        compute_tree(effect = effect_sd, testdata = testdata, objective = objective, n.split = n.split) 
-      })
-
-      list(effects = effects_merged, res.pdp = res.pdp, res.ice = res.ice, res.opt = effect_optimum, trees = trees)
-    })
-
-    reslist[[i]] = results_for_features
-  }
-
-  reslist
-}
 
 
 evaluate_results = function(reslist, plotpath = NULL, alpha = 0.05, optima) {
