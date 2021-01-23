@@ -50,7 +50,7 @@ pdes = data.table(tasks = tasks)
 
 # --- 2. ALGORITHM DESIGN ---
 
-perform_tree_splitting = function(data, job, instance, grid.size, testdata.size, n.splits, lambda, objectives) {
+perform_tree_splitting = function(data, job, instance, grid.size, testdata.size, n.splits, lambda, objective) {
 
 	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/mlp_helper.r")
 	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/helper_evaluation.r")
@@ -103,10 +103,10 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 		features = features, 
 		optima = mbo_optima, 
 		testdata = testdata, 
+		grid.size = grid.size, 
 		objective = objective
 	) 
     end_t = Sys.time()
-
 
     return(list(
     	reslist = reslist, 
@@ -118,7 +118,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 
 ALGORITHMS = list(
     perform_tree_splitting = list(fun = perform_tree_splitting, 
-    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 2, lambda = 1, objectives = c("SS_sd", "SS_area", "SS_L1")))
+    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 2, lambda = 1, objective = c("SS_sd", "SS_area", "SS_L1")))
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)

@@ -97,13 +97,10 @@ compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL)
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
 
-      y = as.data.table(y)
-      cols = names(y)
+      require(Rfast)
 
-      ypred = copy(y)
-      ypred = ypred[, (cols) := (lapply(.SD, median)), .SDcols = cols]
-
-      sum(abs(y - ypred))
+      ypred = colMeans(as.matrix(y))
+      sum(t((t(y) - ypred)^2))    
     } 
 
     input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
@@ -174,7 +171,7 @@ compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL)
       sum(abs(y - median(y)))
     } 
 
-    split.feats = setdiff(model$features, pdp.feat)
+    split.feats = setdiff(names(testdata), pdp.feat)
     input.data = list(X = X[, ..split.feats, drop = FALSE], Y = Y)
   }
   
@@ -248,7 +245,7 @@ compute_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, o
 
 
 
-compute_trees = function(n.split, models, features, optima, testdata, objectives = c("SS_L2", "SS_area", "SS_sd")) {
+compute_trees = function(n.split, models, features, optima, testdata, grid.size, objectives = c("SS_L2", "SS_area", "SS_sd")) {
   
   # Compute trees for a list of models and a list of objectives on a fixed dataset.
 

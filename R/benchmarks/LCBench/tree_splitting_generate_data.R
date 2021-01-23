@@ -41,7 +41,7 @@ resources.serial = list(
 
 reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
-  by = c("job.id", "algorithm", "problem"), reg = reg)
+  by = c("job.id", "algorithm", "problem", "objective"), reg = reg)
 
 # Submit MBO runs 
 tosubmit = tab[problem %in% probs, ]
