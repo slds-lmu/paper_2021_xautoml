@@ -206,7 +206,7 @@ get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, met
 }
 
 
-compute_trees = function(n.split, models, features, optima, testdata, storepath, plot = FALSE) {
+compute_trees = function(n.split, models, features, optima, testdata, gtdata, storepath, plot = FALSE) {
   
   grid.size = 20
   objectives = c("SS_L2","SS_area")
@@ -217,7 +217,7 @@ compute_trees = function(n.split, models, features, optima, testdata, storepath,
 
   reslist = list()
 
-  for (i in seq_along(models[1:10])) {
+  for (i in seq_along(models[1:2])) {
 
     print(i)
 
@@ -241,10 +241,15 @@ compute_trees = function(n.split, models, features, optima, testdata, storepath,
 
       predictor = Predictor$new(model = mymodel, data = as.data.frame(testdata)[, model$features], predict.function = predict.mymodel)
       effect_sd = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
-    
+      
       predictor = Predictor$new(model = model, data = as.data.frame(testdata)[, model$features])
       effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
-
+      
+      # evaluation at optimum
+      effect_optimum = data.frame(feature = optimum[, feature], "mean" = effect_mean$predict(optimum, extrapolate = TRUE), "sd" = effect_sd$predict(optimum, extrapolate = TRUE))
+      names(effect_optimum)[1] = c(feature)   
+      #effect_optimum = cbind(optimum[, c("method", "iter")], effect_optimum)
+      
       effect_sd_d = setDT(effect_sd$results)
       names(effect_sd_d)[2] = "sd"
       effect_mean_d = setDT(effect_mean$results)
@@ -259,9 +264,14 @@ compute_trees = function(n.split, models, features, optima, testdata, storepath,
       q = qnorm(1 - alpha / 2)
       res.pdp$lower = res.pdp$mean - q * res.pdp$sd
       res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
+      
+      # same for optimum
+      effect_optimum$lower = effect_optimum$mean - q * effect_optimum$sd
+      effect_optimum$upper = effect_optimum$mean + q * effect_optimum$sd
 
       # Get the ground-truth
-      gt = gtdata[[feature]]
+      gt = gtdata[[feature]][[1]]
+      gt.optimum = gtdata[[feature]][[2]]
       gt.pdp = setDT(gt)[.type == "pdp", ]
       gt.ice = setDT(gt)[.type == "ice", ]
 
@@ -281,7 +291,7 @@ compute_trees = function(n.split, models, features, optima, testdata, storepath,
 
       }
 
-      results_for_features[[feature]] = list(effects = effects_merged, res.pdp = res.pdp, res.ice = res.ice, gt.pdp = gt.pdp, gt.ice = gt.ice, trees = trees)
+      results_for_features[[feature]] = list(effects = effects_merged, res.pdp = res.pdp, res.ice = res.ice, res.opt = effect_optimum, gt.pdp = gt.pdp, gt.ice = gt.ice, gt.opt = gt.optimum, trees = trees)
     }
 
     reslist[[i]] = results_for_features
