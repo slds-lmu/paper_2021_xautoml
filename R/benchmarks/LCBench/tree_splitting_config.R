@@ -111,6 +111,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 
     return(list(
     	reslist = reslist, 
+    	eval = eval, 
     	runtime = as.integer(end_t) - as.integer(start_t)
     	)
     )
