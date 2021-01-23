@@ -55,6 +55,8 @@ pdes = data.table(tasks = tasks)
 
 mlrmbo = function(data, job, instance, lambda) {
 
+
+
 	surrogate_data = readRDS(file.path(instance, "surrogate.rds"))
 	surr_val = surrogate_data$result[[1]]$model_val_balanced_acc[[1]]
 	surr_test = surrogate_data$result[[1]]$model_test_balanced_acc[[1]]
@@ -121,6 +123,9 @@ mlrmbo = function(data, job, instance, lambda) {
 randomsearch = function(data, job, instance
     # algorithm-specific parameters
     ) {
+
+	print(data)
+	print(instance)
 
 	surrogate_data = readRDS(file.path(instance, "0_objective/surrogate.rds"))
 	surr_val = surrogate_data$result[[1]]$model_val_balanced_acc[[1]]

@@ -60,7 +60,7 @@ tosubmit = tosubmit[algorithm == "randomsearch", ]
 tosubmit = tosubmit[ ,.SD[which.min(job.id)], by = problem]
 
 # Chunking because each experiment only needs ~ 10 minutes
-tosubmit$chunk = chunk(tosubmit$job.id, n.chunks = 3)
+tosubmit$chunk = 1
 submitJobs(tosubmit, resources = resources.serial)
 
 

@@ -31,6 +31,9 @@ addExperiments(
   repls = 1L)
 
 
+
+# SUBMIT THE JOBS
+
 resources.serial = list(
   walltime = 3600L * 24L * 4L, memory = 1024L * 2L,
   clusters = "serial", max.concurrent.jobs = 1000L # get name from lrz homepage)
@@ -53,4 +56,41 @@ tab = summarizeExperiments(
 # Submit MBO runs 
 tosubmit = tab[problem %in% probs, ]
 tosubmit = ijoin(tosubmit, findNotDone())
-submitJobs(4, resources = resources.serial)
+tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 10)
+
+submitJobs(tosubmit, resources = resources.serial)
+
+
+
+# STORE THE JOBS AGAIN 
+
+source("R/benchmarks/LCBench/compute_ground_truth_pdp_config.R")
+
+reg = loadRegistry(registry_name, writeable = FALSE)
+tab = summarizeExperiments(
+  by = c("job.id", "algorithm", "problem"), reg = reg)
+
+probs = unique(tab$problem)
+
+for (prob in probs) {
+
+  toreduce = tab[problem %in% prob, ]
+  toreduce = ijoin(toreduce, findDone())
+  res = reduceResultsList(toreduce)[[1]]
+
+  path = file.path("data/runs/mlp_new", prob)
+
+  # Store the objective function 
+  saveRDS(res["surr_optima"], file.path(path, "0_objective", "surrogate_optima.rds"))
+  saveRDS(res["obj"], file.path(path, "0_objective", "obj.rds"))
+
+  # extract the grid.size and the testdata size
+  gtpdp = res["pdp_ice_groundtruth"]
+  exm = gtpdp$pdp_ice_groundtruth$batch_size[[1]]
+  testdata.size = max(exm$.id, na.rm = TRUE)
+  grid.size = sum(exm$.id == 1, na.rm = TRUE)
+
+  saveRDS(res["pdp_ice_groundtruth"], file.path(path, "2_2_groundtruth_pdps", paste0("gtpdp_", grid.size, "_", testdata.size, ".rds")))
+
+}
+
