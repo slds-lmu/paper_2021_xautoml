@@ -90,7 +90,7 @@ Node <- R6Class("Node", list(
 
 
 
-compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL) {
+compute_tree = function(effect_sd, testdata, objective, n.split) {
 
   if (objective == "SS_L1") {
 
@@ -162,13 +162,13 @@ compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL)
     split.feats = setdiff(names(testdata), pdp.feat)
 
     # The ys are the predictions (in this case, the standard deviation)
-    X = setDT(effect_sd$predictor$data$X)
+    X = setDT(testdata)
     Y = setDT(effect_sd$predictor$predict(X))
     
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
       y = y$pred
-      sum(abs(y - median(y)))
+      sum((y - mean(y))^2)
     } 
 
     split.feats = setdiff(names(testdata), pdp.feat)
@@ -180,7 +180,7 @@ compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL)
   } 
 
   # Initialize the parent node of the tree
-  parent = Node$new(id = 0, depth = 0, subset.idx = seq_len(nrow(input.data$X)))
+  parent = Node$new(id = 0, depth = 1, subset.idx = seq_len(nrow(input.data$X)))
   
   # Perform splitting for the parent
   tree = list(list(parent))
@@ -245,7 +245,7 @@ compute_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, o
 
 
 
-compute_trees = function(n.split, models, features, optima, testdata, grid.size, objectives = c("SS_L2", "SS_area", "SS_sd")) {
+compute_trees = function(n.split, models, features, testdata, grid.size, objectives) {
   
   # Compute trees for a list of models and a list of objectives on a fixed dataset.
 
@@ -256,9 +256,8 @@ compute_trees = function(n.split, models, features, optima, testdata, grid.size,
     print(paste("Model number", i))
 
     model = models[[i]]
-    optimum = optima[i, ]
 
-    results_for_features = lapply(features[1:2], function(feature) {
+    results_for_features = lapply(features, function(feature) {
 
       # Compute all ice curves
       mymodel = makeS3Obj("mymodel", fun = function() return(model))
@@ -277,9 +276,9 @@ compute_trees = function(n.split, models, features, optima, testdata, grid.size,
       effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
       
       # Evaluation at optimum
-      effect_optimum = data.frame(feature = optimum[, feature], "mean" = effect_mean$predict(optimum, extrapolate = TRUE), "sd" = effect_sd$predict(optimum, extrapolate = TRUE))
-      names(effect_optimum)[1] = c(feature)   
-      #effect_optimum = cbind(optimum[, c("method", "iter")], effect_optimum)
+      # effect_optimum = data.frame(feature = optimum[, feature], "mean" = effect_mean$predict(optimum, extrapolate = TRUE), "sd" = effect_sd$predict(optimum, extrapolate = TRUE))
+      # names(effect_optimum)[1] = c(feature)   
+      # effect_optimum = cbind(optimum[, c("method", "iter")], effect_optimum)
       
       effect_sd_d = setDT(effect_sd$results)
       names(effect_sd_d)[2] = "sd"
@@ -296,8 +295,10 @@ compute_trees = function(n.split, models, features, optima, testdata, grid.size,
         compute_tree(effect = effect_sd, testdata = testdata, objective = objective, n.split = n.split) 
       })
 
-      list(effects = effects_merged, res.pdp = res.pdp, res.ice = res.ice, res.opt = effect_optimum, trees = trees)
+      list(res.pdp = res.pdp, res.ice = res.ice, trees = trees)
     })
+
+    names(results_for_features) = features
 
     reslist[[i]] = results_for_features
   }

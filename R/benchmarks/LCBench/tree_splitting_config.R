@@ -65,8 +65,6 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
   	surr_val = readRDS(file.path(instance, "0_objective", "surrogate.rds"))$result[[1]]$model_val_balanced_acc
 	ps = getParamSet(obj)
 
-	print(instance)
-
 	# Get the model we want to perform our analysis on 
 	rundata = readRDS(file.path(instance, "1_1_mlrmbo_runs", paste0("mlrmbo_run_lambda_", lambda, "_30repls.rds")))
 	models = lapply(rundata$result, function(res) {
@@ -78,15 +76,15 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	# Read in the ground-truth 
 	# TODO: check if we perform the evaluation in this script! 
 	gtdata = readRDS(file.path(instance, "2_2_groundtruth_pdps", paste0("gtpdp_", grid.size, "_", testdata.size, ".rds")))$pdp_ice_groundtruth
-	gtdata = lapply(gtdata, function(el) {
-		elt = el
-		elt[[2]] = elt[[2]][method %in% c(paste0("mlrmbo_lambda", lambda)), ]
-		elt
-	})
+
+	# gtdata = lapply(gtdata, function(el) {
+	# 	elt = el
+	# 	elt[[2]] = elt[[2]][method %in% c(paste0("mlrmbo_lambda", lambda)), ]
+	# 	elt
+	# })
 
 	# Found optimal values for the different mbo runs 
-	mbo_runs = readRDS(file.path(instance, "1_1_mlrmbo_runs/", paste0("mlrmbo_run_lambda_", lambda, "_30repls.rds")))
-	mbo_optima = lapply(mbo_runs$result, function(res) {
+	mbo_optima = lapply(rundata$result, function(res) {
 		res$opt.path[which.min(res$opt.path$y), ]
 	})
 
@@ -99,14 +97,17 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	start_t = Sys.time()
 	reslist = compute_trees(
 		n.split = n.splits, 
-		models = models[1:2], # TODO
+		models = models[1], # TODO
 		features = features, 
-		optima = mbo_optima, 
 		testdata = testdata, 
 		grid.size = grid.size, 
 		objective = objective
 	) 
     end_t = Sys.time()
+
+
+	eval = evaluate_results(reslist, mbo_optima, gtdata)
+
 
     return(list(
     	reslist = reslist, 

@@ -62,14 +62,13 @@ find_optimal_node = function(tree, optimum){
 
   node = tree[[1]][[1]]
 
-  max_depth = length(tree) - 1
-  depth = 0
+  max_depth = length(tree) 
 
   while(node$depth < max_depth) {
 
     split.feature = node$split.feature
     split.value = node$split.value
-    
+
     if(optimum[split.feature] <= split.value){
       node = node$children$left.child
     } else {
@@ -151,11 +150,10 @@ find_optimal_subset = function(testdata, split.criteria){
 
 
 # mlp separate until surrogate data problem fixed
-get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, method = "pdp_var_sd", plot = FALSE, alpha = 0.05) {
+get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, method = "pdp_var_sd") {
   
   res.ice = res.ice[which(res.ice$.id %in% idx),]
 
-  # Attention with computation of the sd - this needs to be adapted
   if (method == "pdp_sd") {
     res.pdp = setDT(res.ice)[, .(mean = mean(mean), sd = mean(sd)), by = pdp.feature] 
   } else {
@@ -163,22 +161,8 @@ get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, met
   }
 
   gt.ice = gt.ice[which(gt.ice$.id %in% idx),]
-  # Attention with computation of the sd - this needs to be adapted
   res.gt = setDT(gt.ice)[, .(mean = mean(mean)), by = pdp.feature] 
 
-  q = qnorm(1 - alpha / 2)
-  res.pdp$lower = res.pdp$mean - q * res.pdp$sd
-  res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
-
-  p = NULL
-
-  if (plot) {
-    p = ggplot(data = res.gt, aes_string(x = pdp.feature, y = "mean")) + geom_line()
-    p = p + geom_ribbon(data = res.pdp, aes_string(x = pdp.feature, ymin = "lower", ymax = "upper"), fill = "blue", alpha = 0.2) + geom_line(data = res.pdp, aes_string(x = pdp.feature, y = "mean"), colour = "blue")
-    p = p + geom_vline(data = optimum, aes_string(xintercept = pdp.feature), colour = "orange", lty = 2)
-  }
-
-  
   pp = res.pdp
   pp.gt = res.gt
 
@@ -186,113 +170,97 @@ get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, met
       - dnorm(pp.gt[i, ]$mean, mean = pp[i, ]$mean, sd = pp[i, ]$sd, log = TRUE) 
   })))
   
-  conf.diff = sum(pp$upper - pp$lower)
+  conf.diff = sum(pp$sd)
   gt.diff.abs = sum(abs(pp.gt$mean - pp$mean))
   gt.diff.sd = sd(pp.gt$mean - pp$mean)
+  gt.diff.abs.sd = sd(abs(pp.gt$mean - pp$mean))
+
+  df = data.frame(conf.diff, gt.diff.abs, gt.diff.sd, gt.diff.abs.sd, neg_loglik)
   
   # values at the optimum
   pp_dist_opt = abs(pp[, ..pdp.feature] - as.numeric(optimum[, pdp.feature]))
-  best_idx = order(pp_dist_opt)[1] # adjust number of grid points to evaluate?
 
-  pp.opt = pp[best_idx, ] 
-  pp.gt.opt = pp.gt[best_idx, ]
+  df.opt = lapply(1:3, function(nn) {
+    best_idx = order(pp_dist_opt)[seq_len(nn)] # adjust number of grid points to evaluate?
 
-  conf.diff.opt = sum(pp.opt$upper - pp.opt$lower)
-  gt.diff.abs.opt = sum(abs(pp.gt.opt$mean - pp.opt$mean))
-  gt.diff.sd.opt = sd(pp.gt.opt$mean - pp.opt$mean)
+    pp.opt = pp[best_idx, ] 
+    pp.gt.opt = pp.gt[best_idx, ]
+
+    conf.diff.opt = sum(pp.opt$sd)
+    gt.diff.abs.opt = sum(abs(pp.gt.opt$mean - pp.opt$mean))
+
+    df.opt = data.frame(conf.diff.opt, gt.diff.abs.opt)
+    names(df.opt) = paste0(names(df.opt), ".", nn)
+
+    df.opt
+  })
+
+  df.opt = do.call(cbind, df.opt)
+
+  df = cbind(df, df.opt)
     
-  return(list(df = data.frame("conf.diff" = conf.diff, "gt.diff.abs" = gt.diff.abs, "gt.diff.sd" = gt.diff.sd,
-              "conf.diff.opt" = conf.diff.opt, "gt.diff.abs.opt" = gt.diff.abs.opt, "gt.diff.sd.opt" = gt.diff.sd.opt, neg_loglik = neg_loglik), p = p))
+  return(df)
 }
 
 
 
 
-evaluate_results = function(reslist, plotpath = NULL, alpha = 0.05, optima) {
+evaluate_results = function(reslist, optima, gtdata) {
   
   df = data.frame()
-
-  if (!is.null(plotpath))
-    plot = TRUE
 
   # Iterate over all models we have 
   for (i in seq_along(reslist)) {
 
     resmod = reslist[[i]]
-    optimum = optima[[i]]
+    optimum = optima[i, ]
 
     for (feature in names(resmod)) {
 
-      res = reslist[[i]][[feature]]
+      res = resmod[[feature]]
 
-      effects_merged = res$effects
-
-      sf = c(feature, "mean", "sd", ".id")
-      res.pdp = effects_merged[.type == "pdp", ..sf]
-      res.ice = effects_merged[.type == "ice", ..sf]
-
-      q = qnorm(1 - alpha / 2)
-      res.pdp$lower = res.pdp$mean - q * res.pdp$sd
-      res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
-
-      ymax = max(res.pdp$upper) + 0.02
-      ymin = min(res.pdp$lower) - 0.02
+      res.pdp = res$res.pdp
+      res.ice = res$res.ice
 
       # Get the ground-truth
-      gt.pdp = res$gt.pdp
-      gt.ice = res$gt.ice
+      gt.pdp = setDT(gtdata[[feature]][[1]])[.type == "pdp", ]
+      gt.ice = setDT(gtdata[[feature]][[1]])[.type == "ice", ]
 
-      for (objective in names(res$trees)) {
+      tree = res$trees[[1]]
 
-        tree = res$trees[[objective]]
+      source_node = tree[[1]][[1]]
 
-        source_node = tree[[1]][[1]]
-        eval.source_node = get_eval_measures_mlp(res.ice, gt.ice, source_node$subset.idx, feature, optimum[feature], plot = plot, alpha = alpha)
+      eval.source_node = get_eval_measures_mlp(res.ice, gt.ice, source_node$subset.idx, feature, optimum[feature])   
+
+      names(eval.source_node) = paste0("source.", names(eval.source_node))
+
+      for (depth in seq(2, length(tree))) {
         
-        if (plot) {
-          plist = list()
-          plist[[1]] = eval.source_node$p + ylim(c(ymin, ymax))
+        subtree = tree[seq_len(depth)]
+        node = find_optimal_node(subtree, optimum)
+
+        eval.opt = get_eval_measures_mlp(res.ice, gt.ice, node$subset.idx, feature, optimum[feature])
+
+        values = cbind(model = i, feature = feature, depth = depth, eval.opt, eval.source_node)
+
+        if (is.null(df)) {
+          df = values
+        } else {
+          df = rbind(df, values)
         }
-
-        names(eval.source_node$df) = paste0("source.", names(eval.source_node$df))
-
-        for (depth in seq(2, length(tree))) {
-          
-          subtree = tree[seq_len(depth)]
-          node = find_optimal_node(subtree, optimum)
-          eval.opt = get_eval_measures_mlp(res.ice, gt.ice, node$subset.idx, feature, optimum[feature], plot = plot)
-
-          if (!is.null(plotpath)) {
-            plist[[depth]] = eval.opt$p + ylim(c(ymin, ymax))
-          }
-
-          values = cbind(model = i, objective = objective, feature = feature, depth = depth, depth.actual = node$depth + 1, eval.opt$df, eval.source_node$df)
-
-          if (is.null(df)) {
-            df = values
-          } else {
-            df = rbind(df, values)
-          }
-        }
-
-        if(!exists(file.path(plotpath, "individual_pdps")))
-          dir.create(file.path(plotpath, "individual_pdps"))
-
-        if(!exists(file.path(plotpath, "individual_pdps", objective)))
-          dir.create(file.path(plotpath, "individual_pdps", objective))
-
-        if(!exists(file.path(plotpath, "individual_pdps", objective, i)))
-          dir.create(file.path(plotpath, "individual_pdps", objective, i))
-
-        ggsave(file.path(plotpath, "individual_pdps", objective, i, paste0(feature, ".png")), do.call(grid.arrange, c(plist[c(1, length(plist) - 1)], nrow = 1)), width = 8, height = 4)
       }
     }
   }
 
   df$conf.rel = (df$source.conf.diff - df$conf.diff) / df$source.conf.diff
   df$gt.rel = (df$source.gt.diff.abs - df$gt.diff.abs) / df$source.gt.diff.abs
-  df$conf.rel.opt = (df$source.conf.diff.opt - df$conf.diff.opt) / df$source.conf.diff.opt
-  df$gt.rel.opt = (df$source.gt.diff.abs.opt - df$gt.diff.abs.opt) / df$source.gt.diff.abs.opt
+  df$gt.abs = df$source.gt.diff.abs - df$gt.diff.abs
+
+  for (nn in 1:3) {
+    df[, paste0("conf.rel.opt.", nn)] = (df[, paste0("source.conf.diff.opt.", nn)] - df[, paste0("conf.diff.opt.", nn)]) / df[, paste0("source.conf.diff.opt.", nn)]
+    df[, paste0("gt.abs.opt.", nn)] = (df[, paste0("source.gt.diff.abs.opt.", nn)] - df[, paste0("gt.diff.abs.opt.", nn)]) 
+  }
+
   df$neg_loglik.rel = (df$source.neg_loglik - df$neg_loglik) / df$source.neg_loglik
 
   return(df)
