@@ -50,17 +50,17 @@ tosubmit = tab # [problem %in% probs, ]
 tosubmit = tosubmit[algorithm == "mlrmbo", ]
 tosubmit = ijoin(tosubmit, findNotDone())
 # Chunking because each experiment only needs ~ 45 minutes
-tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10)
+tosubmit$chunk = chunk(tosubmit$job.id, n.chunks = 3)
 submitJobs(tosubmit, resources = resources.serial)
 
 # Submit randomsearch runs 
-tosubmit = tab[problem %in% probs, ]
+tosubmit = tab
 tosubmit = tosubmit[algorithm == "randomsearch", ]
-tosubmit = ijoin(tosubmit, findNotDone())
+# tosubmit = ijoin(tosubmit, findNotDone())
 tosubmit = tosubmit[ ,.SD[which.min(job.id)], by = problem]
 
 # Chunking because each experiment only needs ~ 10 minutes
-tosubmit$chunk = chunk(tosubmit$job.id, chunk.size = 10)
+tosubmit$chunk = chunk(tosubmit$job.id, n.chunks = 3)
 submitJobs(tosubmit, resources = resources.serial)
 
 

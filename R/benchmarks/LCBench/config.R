@@ -38,7 +38,7 @@ lapply(packages, library, character.only = TRUE)
 
 # --- 1. PROBLEM DESIGN ---
 
-TASK_LOCATION = "data/runs/mlp/"
+TASK_LOCATION = "data/runs/mlp_new/"
 
 tasks = list.dirs(TASK_LOCATION, full.names = FALSE)
 tasks = tasks[2:length(tasks)]
