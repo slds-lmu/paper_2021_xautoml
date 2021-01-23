@@ -206,27 +206,20 @@ get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, met
 }
 
 
-compute_trees = function(n.split, models, features, optima, testdata, gtdata, storepath, plot = FALSE) {
+compute_trees = function(n.split, models, features, optima, testdata, gtdata) {
   
-  grid.size = 20
   objectives = c("SS_L2","SS_area")
-
-  alpha = 0.05
-
-  # Iterate over all models we have 
 
   reslist = list()
 
-  for (i in seq_along(models[1:2])) {
+  for (i in seq_along(models)) {
 
-    print(i)
+    print(paste("Model number", i))
 
     model = models[[i]]
-    optimum = optima[[i]]
+    optimum = optima[i, ]
 
-    results_for_features = list()
-
-    for (feature in features) {
+    results_for_features = lapply(features, function(feature) {
 
       # Compute all ice curves
       mymodel = makeS3Obj("mymodel", fun = function() return(model))
@@ -234,8 +227,7 @@ compute_trees = function(n.split, models, features, optima, testdata, gtdata, st
       predict.mymodel = function(object, newdata) {
         pred = predict(object$fun(), newdata = newdata)
         pp = getPredictionSE(pred)
-        # if(addMean == TRUE) 
-        #   pp = getPredictionResponse(pred) - 2 * pp
+
         return(pp)
       }
 
@@ -245,7 +237,7 @@ compute_trees = function(n.split, models, features, optima, testdata, gtdata, st
       predictor = Predictor$new(model = model, data = as.data.frame(testdata)[, model$features])
       effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
       
-      # evaluation at optimum
+      # Evaluation at optimum
       effect_optimum = data.frame(feature = optimum[, feature], "mean" = effect_mean$predict(optimum, extrapolate = TRUE), "sd" = effect_sd$predict(optimum, extrapolate = TRUE))
       names(effect_optimum)[1] = c(feature)   
       #effect_optimum = cbind(optimum[, c("method", "iter")], effect_optimum)
@@ -261,43 +253,15 @@ compute_trees = function(n.split, models, features, optima, testdata, gtdata, st
       res.pdp = effects_merged[.type == "pdp", ..sf]
       res.ice = effects_merged[.type == "ice", ..sf]
 
-      q = qnorm(1 - alpha / 2)
-      res.pdp$lower = res.pdp$mean - q * res.pdp$sd
-      res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
-      
-      # same for optimum
-      effect_optimum$lower = effect_optimum$mean - q * effect_optimum$sd
-      effect_optimum$upper = effect_optimum$mean + q * effect_optimum$sd
+      trees = lapply(objectives, function(objective) {
+        compute_tree(effect = effect_sd, testdata = testdata, objective = objective, n.split = n.split) 
+      })
 
-      # Get the ground-truth
-      gt = gtdata[[feature]][[1]]
-      gt.optimum = gtdata[[feature]][[2]]
-      gt.pdp = setDT(gt)[.type == "pdp", ]
-      gt.ice = setDT(gt)[.type == "ice", ]
-
-      if (plot) {
-        p = ggplot(data = gt.pdp, aes_string(x = feature, y = "mean")) + geom_line(colour = "blue")
-        p = p + geom_ribbon(data = res.pdp, aes_string(x = feature, ymin = "lower", ymax = "upper"), alpha = 0.2) + geom_line(data = res.pdp, aes_string(x = feature, y = "mean"))
-        p = p + geom_vline(data = optimum, aes_string(xintercept = feature), colour = "orange", lty = 2)
-        p
-      }
-
-      trees = list()
-
-      for (objective in objectives) {
-
-        trees[[objective]] = compute_tree(effect_sd = effect_sd, testdata = testdata, objective = objective, n.split = n.split) 
-        end_t = Sys.time()
-
-      }
-
-      results_for_features[[feature]] = list(effects = effects_merged, res.pdp = res.pdp, res.ice = res.ice, res.opt = effect_optimum, gt.pdp = gt.pdp, gt.ice = gt.ice, gt.opt = gt.optimum, trees = trees)
-    }
+      list(effects = effects_merged, res.pdp = res.pdp, res.ice = res.ice, res.opt = effect_optimum, trees = trees)
+    })
 
     reslist[[i]] = results_for_features
   }
-
-  saveRDS(reslist, storepath)
 
   reslist
 }

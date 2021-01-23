@@ -16,7 +16,7 @@ reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/benchmarks/LCBenc
 for (i in seq_len(length(tasks))) {
   addProblem(
     name = tasks[i], 
-    data = paste(TASK_LOCATION, tasks[i], sep = "/"), 
+    data = paste("data/runs/mlp_new", tasks[i], sep = "/"), 
     reg = reg
   )
 }
@@ -39,7 +39,7 @@ resources.serial = list(
 )
 
 reg = loadRegistry(registry_name, writeable = TRUE)
-reg$source = "R/benchmarks/LCBench/config.R"
+# reg$source = "R/benchmarks/LCBench/config.R"
 tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem", "lambda"))
 
@@ -56,7 +56,7 @@ submitJobs(tosubmit, resources = resources.serial)
 # Submit randomsearch runs 
 tosubmit = tab
 tosubmit = tosubmit[algorithm == "randomsearch", ]
-# tosubmit = ijoin(tosubmit, findNotDone())
+tosubmit = ijoin(tosubmit, findNotDone())
 tosubmit = tosubmit[ ,.SD[which.min(job.id)], by = problem]
 
 # Chunking because each experiment only needs ~ 10 minutes

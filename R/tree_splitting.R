@@ -28,6 +28,7 @@ Node <- R6Class("Node", list(
       assert_numeric(id, len = 1)
       assert_numeric(depth, len = 1, null.ok = TRUE)
 
+      assert_numeric(subset.idx, min.len = 1)
       assert_numeric(id.parent, len = 1, null.ok = TRUE)
       assert_character(child.type, null.ok = TRUE)
 
@@ -40,7 +41,7 @@ Node <- R6Class("Node", list(
       self$stop.criterion.met = FALSE
     },
 
-    computeSplit = function(X, Y, objective, optimizer, min.split = 2) {
+    computeSplit = function(X, Y, objective, optimizer, min.split = 10) {
       
       if (length(self$subset.idx) < min.split) {
         self$stop.criterion.met = TRUE
@@ -49,7 +50,7 @@ Node <- R6Class("Node", list(
         self$objective.value = objective(y = Y[self$subset.idx, ], x = X[self$subset.idx, ])
 
         tryCatch({
-          split = split_parent_node(Y = Y[self$subset.idx, ], X = X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
+          split = customtrees::split_parent_node(Y = Y[self$subset.idx, ], X = X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
           self$split.feature = split$feature[split$best.split][1]
           self$split.value = unlist(split$split.points[split$best.split])[1]
         }, 
@@ -183,32 +184,16 @@ compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL)
 
   for (depth in seq_len(n.split)) {
 
-    if (!is.null(optimum)) {
+    leaves = tree[[depth]]
 
-      node.to.split = find_optimal_node(tree, optimum)
-      
-      tree[[depth + 1]] = list()
+    tree[[depth + 1]] = list()
 
-      if (!is.null(node.to.split)) {
-        node.to.split$computeSplit(input.data$X, input.data$Y, split.objective, find_best_binary_split)
-        node.to.split$computeChildren(input.data$X, input.data$Y)
+    for (node.idx in seq_along(leaves)) {
 
-        tree[[depth + 1]] = c(tree[[depth + 1]], node.to.split$children)        
-
-      } else {
-        tree[[depth + 1]] = c(tree[[depth + 1]], list(NULL, NULL))                
-      }
-    } else {
-      
-      leaves = tree[[depth]]
-      tree[[depth + 1]] = list()
-
-      for (node.idx in seq_along(leaves)) {
-
-        node.to.split = leaves[[node.idx]]
+      node.to.split = leaves[[node.idx]]
 
         if (!is.null(node.to.split)) {
-          node.to.split$computeSplit(input.data$X, input.data$Y, split.objective, find_best_binary_split)
+          node.to.split$computeSplit(X = input.data$X, Y = input.data$Y, objective = split.objective, optimizer = find_best_binary_split, min.split = 2)
           node.to.split$computeChildren(input.data$X, input.data$Y)
 
           tree[[depth + 1]] = c(tree[[depth + 1]], node.to.split$children)        
@@ -217,8 +202,6 @@ compute_tree = function(effect_sd, testdata, objective, n.split, optimum = NULL)
         }
       }
     }
-
-  }
 
   return(tree)
 }

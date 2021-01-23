@@ -6,19 +6,19 @@ source("R/helper.R")
 SETUP = "TEST"
 
 switch(SETUP, 
-	"TEST" = {
+	"REAL" = {
 		# overwrite registry
 		OVERWRITE = TRUE
 		# termination criterion for each run
-		RUNTIME_MAX = 60L
+		RUNTIME_MAX = 302400
     # registry name for storing files on drive 
 		registry_name = "results/mlp_ground_truth_pdp" 
 	},
-	"REAL" = {
+	"TEST" = {
 		# overwrite registry?
 		OVERWRITE = FALSE
 		# termination criterion for each run
-		RUNTIME_MAX = 302400
+		RUNTIME_MAX = 60L
     # registry name for storing files on drive     
 		registry_name = "results/mlp_ground_truth_pdp_test"
 	}

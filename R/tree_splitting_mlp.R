@@ -7,8 +7,6 @@ Node <- R6Class("Node", list(
     depth = NULL,
 
     # ids of the instances of data that are in this node
-    X = NULL,
-    Y = NULL,
     subset.idx = NULL,
     objective.value = NULL, # objective value in a node
 
@@ -25,39 +23,34 @@ Node <- R6Class("Node", list(
 
     stop.criterion.met = FALSE, 
 
-    initialize = function(id, depth = NULL, X, Y, subset.idx, id.parent = NULL, child.type = NULL) {
+    initialize = function(id, depth = NULL, subset.idx, id.parent = NULL, child.type = NULL) {
       
       assert_numeric(id, len = 1)
-      assert_class(X, c("data.table"))
-      assert_class(Y, c("data.table"))
       assert_numeric(depth, len = 1, null.ok = TRUE)
 
-      assert_numeric(subset.idx, min.len = 1, max.len = nrow(X))
+      assert_numeric(subset.idx, min.len = 1)
       assert_numeric(id.parent, len = 1, null.ok = TRUE)
       assert_character(child.type, null.ok = TRUE)
 
       self$id = id
-      self$X = X
-      self$Y = Y
       self$depth = depth
       self$subset.idx = subset.idx
       self$id.parent = id.parent
       self$child.type = child.type
-      self$objective.value = 
 
       self$stop.criterion.met = FALSE
     },
 
-    computeSplit = function(objective, optimizer, min.split = 10) {
+    computeSplit = function(X, Y, objective, optimizer, min.split = 10) {
       
       if (length(self$subset.idx) < min.split) {
         self$stop.criterion.met = TRUE
       } else {
         # Just for information purposes
-        self$objective.value = objective(y = self$Y[self$subset.idx, ], x = self$X[self$subset.idx, ])
+        self$objective.value = objective(y = Y[self$subset.idx, ], x = X[self$subset.idx, ])
 
         tryCatch({
-          split = split_parent_node(Y = self$Y[self$subset.idx, ], X = self$X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
+          split = split_parent_node(Y = Y[self$subset.idx, ], X = X[self$subset.idx, ], objective = objective, optimizer = find_best_binary_split, min.node.size = min.split)
           self$split.feature = split$feature[split$best.split][1]
           self$split.value = unlist(split$split.points[split$best.split])[1]
         }, 
@@ -68,7 +61,7 @@ Node <- R6Class("Node", list(
       }
     },
 
-    computeChildren = function() {
+    computeChildren = function(X, Y) {
 
       if (self$stop.criterion.met) {
         # no further split is performed
@@ -78,14 +71,14 @@ Node <- R6Class("Node", list(
           stop("Please compute the split first via computeSplit().")
 
 
-        idx.left = which(self$X[self$subset.idx, self$split.feature, with = FALSE] <= self$split.value)
-        idx.right = which(self$X[self$subset.idx, self$split.feature, with = FALSE] > self$split.value)
+        idx.left = which(X[self$subset.idx, self$split.feature, with = FALSE] <= self$split.value)
+        idx.right = which(X[self$subset.idx, self$split.feature, with = FALSE] > self$split.value)
 
         idx.left = self$subset.idx[idx.left]
         idx.right = self$subset.idx[idx.right]
 
-        left.child = Node$new(id = 1, depth = self$depth + 1, X = self$X, Y = self$Y, subset.idx = idx.left, id.parent = self$id, child.type = "<=")
-        right.child = Node$new(id = 2, depth = self$depth + 1, X = self$X, Y = self$Y, subset.idx = idx.right, id.parent = self$id, child.type = ">")
+        left.child = Node$new(id = 1, depth = self$depth + 1, X = X, Y = Y, subset.idx = idx.left, id.parent = self$id, child.type = "<=")
+        right.child = Node$new(id = 2, depth = self$depth + 1, X = X, Y = Y, subset.idx = idx.right, id.parent = self$id, child.type = ">")
 
         self$children = list("left.child" = left.child, "right.child" = right.child)
       }
@@ -100,7 +93,7 @@ compute_tree = function(effect, objective, n.split) {
   input.data = compute_data_for_ice_splitting(effect)
 
   # Initialize the parent node of the tree
-  parent = Node$new(id = 0, depth = 0, X = input.data$X, Y = input.data$Y, subset.idx = seq_len(nrow(input.data$X)))
+  parent = Node$new(id = 0, depth = 0, subset.idx = seq_len(nrow(input.data$X)))
   
   # Perform splitting for the parent
   tree = list(list(parent))
