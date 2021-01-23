@@ -44,7 +44,7 @@ tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem", "objective"), reg = reg)
 
 # Submit MBO runs 
-tosubmit = tab[problem %in% probs, ]
+tosubmit = tab
 tosubmit = ijoin(tosubmit, findNotDone())
 tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 10)
 
