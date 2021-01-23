@@ -46,6 +46,7 @@ TASK_LOCATION = "data/runs/synthetic/"
 tasks = c("StyblinskiTang")
 dimensions = c(2, 3, 5, 10)
 
+
 pdes = data.table(tasks = tasks, dimensions = dimensions)
 
 
@@ -64,7 +65,7 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
     ps = getParamSet(obj)
     pl = getParamLengths(ps)
 
-    max.evals = switch(which(pl == c(2, 3, 5, 10)), 50, 800, 150, 250)
+    max.evals = switch(which(pl == c(2, 3, 5, 10)), 50, 80, 150, 250)
 
     if (lambda == 1000) {
         init_design = max.evals
