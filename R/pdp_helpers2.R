@@ -1,13 +1,13 @@
-marginal_effect = function(obj, feature, data, model, grid.size) {
+marginal_effect = function(obj, feature, data, model, grid.size, method = "pdp+ice") {
         
-    mymodel = makeS3Obj("mymodel", fun = function(data) return(apply(data[, model$features], 1, obj)))
+    mymodel = makeS3Obj("mymodel", fun = function(data) return(apply(data[, all.features], 1, obj)))
                         
     predict.mymodel = function(object, newdata) {
         object$fun(newdata)
     }
                         
-    predictor = Predictor$new(model = mymodel, data = data[, model$features], predict.function = predict.mymodel)
-    effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
+    predictor = Predictor$new(model = mymodel, data = data[, all.features], predict.function = predict.mymodel)
+    effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = method)
 
     res = effects$results
     names(res) = c(feature, "mean")

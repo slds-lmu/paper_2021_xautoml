@@ -55,6 +55,8 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/mlp_helper.r")
 	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/helper_evaluation.r")
 
+	moduleload()
+
 	source("R/helper_evaluation.r")
 	source("R/mlp_helper.r")
 	source("R/tree_splitting.R")

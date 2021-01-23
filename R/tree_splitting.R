@@ -57,7 +57,7 @@ Node <- R6Class("Node", list(
           self$split.value = unlist(split$split.points[split$best.split])[1]
         }, 
         error = function(cond) {
-          message(paste0("Min.node.size is reached in node ", self$id))
+          # message(paste0("Min.node.size is reached in node ", self$id))
           self$stop.criterion.met = TRUE
         })
       }
