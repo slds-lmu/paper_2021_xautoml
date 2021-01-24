@@ -126,7 +126,7 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
     )
 }
 
-ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 7, lambda = c(0.1, 1, 2, 5, 10, 1000))
+ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 5, lambda = c(0.1, 1, 2, 5, 10, 1000))
 grid = expand.grid(seq(1, nrow(ades)), objective = c("SS_sd", "SS_area", "SS_L1", "SS_L2"))
 ades = cbind(ades[grid$Var1, ], objective = grid$objective)
 
