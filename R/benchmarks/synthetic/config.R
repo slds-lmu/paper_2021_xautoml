@@ -78,12 +78,12 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
     ctrl = setMBOControlTermination(ctrl, max.evals = max.evals)
     ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
-
-
 	set.seed(1234)        
     des = generateDesign(n = init_design, par.set = ps, fun = lhs::randomLHS)
+
+    lrn = makeLearner("regr.km", predict.type = "se", covtype = "matern3_2", optim.method = "gen", nugget.stability = 10^(-8))
     
-    res = mbo(obj, design = des, control = ctrl, show.info = FALSE)
+    res = mbo(obj, design = des, learner = lrn, control = ctrl, show.info = FALSE)
     opdf = as.data.frame(res$opt.path)
 
     models = res$models
@@ -100,7 +100,7 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
 	reslist = compute_trees(
 		n.split = n.splits, 
 		models = models, 
-		features = features, 
+		features = features[1], 
 		testdata = testdata, 
 		grid.size = grid.size, 
 		objective = objective
@@ -126,7 +126,7 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
     )
 }
 
-ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 7, lambda = c(0.1, 1, 2, 5, 10, 1000))
+ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 5, lambda = c(0.1, 1, 2, 5, 10, 1000))
 grid = expand.grid(seq(1, nrow(ades)), objective = c("SS_sd", "SS_area", "SS_L1", "SS_L2"))
 ades = cbind(ades[grid$Var1, ], objective = grid$objective)
 
