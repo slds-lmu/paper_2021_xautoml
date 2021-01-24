@@ -78,12 +78,12 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
     ctrl = setMBOControlTermination(ctrl, max.evals = max.evals)
     ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
-
-
 	set.seed(1234)        
     des = generateDesign(n = init_design, par.set = ps, fun = lhs::randomLHS)
+
+    lrn = makeLearner("regr.km", predict.type = "se", covtype = "matern3_2", optim.method = "gen", nugget.stability = 10^(-8))
     
-    res = mbo(obj, design = des, control = ctrl, show.info = FALSE)
+    res = mbo(obj, design = des, learner = lrn, control = ctrl, show.info = FALSE)
     opdf = as.data.frame(res$opt.path)
 
     models = res$models
