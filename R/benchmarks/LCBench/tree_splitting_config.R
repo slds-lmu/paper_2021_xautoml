@@ -116,7 +116,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 
 ALGORITHMS = list(
     perform_tree_splitting = list(fun = perform_tree_splitting, 
-    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 7, lambda = 1, objective = c("SS_sd", "SS_area", "SS_L1", "SS_L2")))
+    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 6, lambda = 1, objective = c("SS_sd", "SS_area", "SS_L1", "SS_L2")))
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)

@@ -35,18 +35,43 @@ addExperiments(
 # SUBMIT THE JOBS
 
 resources.serial = list(
-  walltime = 3600L * 24L * 4L, memory = 1024L * 2L,
+  walltime = 3600L * 24L * 4L, memory = 1024L * 4L,
   clusters = "serial", max.concurrent.jobs = 1000L # get name from lrz homepage)
 )
 
 reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
-  by = c("job.id", "algorithm", "problem", "objective"), reg = reg)
+  by = c("job.id", "algorithm", "problem", "objective", "grid.size", "testdata.size"), reg = reg)
 
 # Submit MBO runs 
 tosubmit = tab
 tosubmit = ijoin(tosubmit, findNotDone())
-tosubmit = ijoin(tosubmit, findNotStarted())
-tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 5)
+tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 2)
 
 submitJobs(tosubmit, resources = resources.serial)
+
+
+# Store the results that are already ready 
+
+for (prob in unique(tab$prob)) {
+
+  for (obj in unique(tab$objective)) {
+
+    subres = tab[problem == prob & objective == obj, ]
+
+    if (nrow(ijoin(findDone(), subres)) == 1) {
+
+      res = reduceResultsDataTable(subres)
+      res = ijoin(tab, res)
+      
+      grid.size = res$grid.size
+      testdata.size = res$testdata.size
+
+      savepath = file.path("data/runs/mlp_new/", prob, "2_3_effects_and_trees", paste0("effects_trees_", obj, "_", grid.size, "_", testdata.size, ".rds"))
+
+      if (!file.exists(savepath))
+        saveRDS(res, savepath)    
+    }
+  }
+}
+
