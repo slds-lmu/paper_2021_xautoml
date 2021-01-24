@@ -41,17 +41,20 @@ resources.serial = list(
 
 reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
-  by = c("job.id", "algorithm", "problem", "objective", "grid.size", "testdata.size"), reg = reg)
+  by = c("job.id", "algorithm", "problem", "objective", "grid.size", "testdata.size", "n.splits"), reg = reg)
 
 # Submit MBO runs 
-tosubmit = tab
+tosubmit = tab[n.splits == 6 & objective == "SS_area", ]
 tosubmit = ijoin(tosubmit, findNotDone())
+tosubmit = tosubmit[- which(job.id %in% findRunning()), ]
 tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 2)
 
-submitJobs(tosubmit, resources = resources.serial)
+submitJobs(tosubmit[chunk == 1, ], resources = resources.serial)
 
 
 # Store the results that are already ready 
+
+reg = loadRegistry(registry_name, writeable = FALSE)
 
 for (prob in unique(tab$prob)) {
 
@@ -61,13 +64,13 @@ for (prob in unique(tab$prob)) {
 
     if (nrow(ijoin(findDone(), subres)) == 1) {
 
-      res = reduceResultsDataTable(subres)
+      res = reduceResultsDataTable(subres, function(x) x$eval)
       res = ijoin(tab, res)
       
       grid.size = res$grid.size
       testdata.size = res$testdata.size
 
-      savepath = file.path("data/runs/mlp_new/", prob, "2_3_effects_and_trees", paste0("effects_trees_", obj, "_", grid.size, "_", testdata.size, ".rds"))
+      savepath = file.path("data/runs/mlp_new/", prob, "2_3_effects_and_trees", paste0("eval_", obj, "_", grid.size, "_", testdata.size, ".rds"))
 
       if (!file.exists(savepath))
         saveRDS(res, savepath)    

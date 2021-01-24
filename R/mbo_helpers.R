@@ -1,4 +1,4 @@
-createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_size = NULL, seed = NULL, eval_performance = FALSE) {
+createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_size = NULL, seed = NULL, eval_performance = FALSE, kernel = "matern3_2") {
         
 
     ps = getParamSet(fun)
@@ -19,8 +19,10 @@ createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_s
         set.seed(seed)
         
     des = generateDesign(n = init_size, par.set = ps, fun = lhs::randomLHS)
-    
-    res = mbo(fun, design = des, control = ctrl, show.info = FALSE)
+
+    lrn = makeLearner("regr.km", predict.type = "se", covtype = kernel, optim.method = "gen", nugget.stability = 10^(-8))
+
+    res = mbo(fun, design = des, learner = lrn, control = ctrl, show.info = FALSE)
     attr(res, "type") = type
 
     # evaluate on a big random LHS 
