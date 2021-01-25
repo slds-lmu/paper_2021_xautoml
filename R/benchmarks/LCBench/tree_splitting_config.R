@@ -20,7 +20,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
     # registry name for storing files on drive     
-		registry_name = "results/tree_splitting"
+		registry_name = "results/tree_splitting_enhanced_evaluation"
 	}
 )
 
@@ -106,8 +106,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 
     end_t = Sys.time()
 
-	# eval = evaluate_results(reslist, mbo_optima, gtdata)
-	eval = NULL
+	eval = evaluate_results(reslist = reslist, optima = mbo_optima, gtdata = gtdata, testdata = testdata, models = models)
 
     return(list(
     	reslist = reslist, 
@@ -122,7 +121,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 
 ALGORITHMS = list(
     perform_tree_splitting = list(fun = perform_tree_splitting, 
-    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 6, lambda = 1, objective = c("SS_sd", "SS_area", "SS_L1", "SS_L2")))
+    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 6, lambda = 2, objective = c("SS_sd", "SS_area", "SS_L1", "SS_L2")))
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)

@@ -115,6 +115,8 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
 
     names(gtdata) = features
 
+
+    print("Perform Evaluation")
 	eval = evaluate_results(reslist, mbo_optima, gtdata)
 
     return(list(

@@ -174,6 +174,55 @@ compute_tree = function(effect_sd, testdata, objective, n.split) {
     split.feats = setdiff(names(testdata), pdp.feat)
     input.data = list(X = X[, ..split.feats, drop = FALSE], Y = Y)
   }
+
+  else if (objective == "var_cor_sim") {
+
+    pdp.feat = effect_sd$feature.name
+    split.feats = setdiff(names(testdata), pdp.feat)
+
+    # The ys are the predictions (in this case, the standard deviation)
+    X = setDT(testdata)
+    Y = data.table(.id = seq_row(testdata))
+
+    # Get all grid points
+    gridvalues = effect_sd$results[.type == "pdp", ..pdp.feat, drop = TRUE]
+    gs = nrow(gridvalues)
+
+    km = model$learner.model
+
+    # Covtype is needed later to extract the covariance 
+    covtype = attr(km, "covariance")
+  
+    res = lapply(seq_row(gridvalues), function(j) {
+
+      gv = as.numeric(gridvalues[j, ])
+
+      # Create vector along the gridvalue gv by combining it with the "test dataset"
+      gg = merge(gv, testdata[, ..split.feats])
+      names(gg) = c(pdp.feat, split.feats)
+      gg = gg[, names(testdata)]
+
+      # Compute the posterior mean and covariance of the predictions at points in gg
+      pred = predict(object = km, newdata = gg, type = "SK", cov.compute = TRUE)
+      C = pred$cov
+
+      return(C)
+    })
+
+    res = do.call(cbind, res)
+
+    # define objective
+    split.objective = function(y, x, requires.x = FALSE, ...) {
+
+      y = y$.id
+
+      y2 = rep(y, gs) + rep(seq(0, gs - 1) * 1000, each = length(y))
+
+      sum(res[y, y2])
+    } 
+
+    input.data = list(X = X[, ..split.feats, drop = FALSE], Y = Y)
+  }
   
   else {
     stop(paste("Objective", objective, "is not supported."))
@@ -274,12 +323,7 @@ compute_trees = function(n.split, models, features, testdata, grid.size, objecti
       
       predictor = Predictor$new(model = model, data = as.data.frame(testdata)[, model$features])
       effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
-      
-      # Evaluation at optimum
-      # effect_optimum = data.frame(feature = optimum[, feature], "mean" = effect_mean$predict(optimum, extrapolate = TRUE), "sd" = effect_sd$predict(optimum, extrapolate = TRUE))
-      # names(effect_optimum)[1] = c(feature)   
-      # effect_optimum = cbind(optimum[, c("method", "iter")], effect_optimum)
-      
+            
       effect_sd_d = setDT(effect_sd$results)
       names(effect_sd_d)[2] = "sd"
       effect_mean_d = setDT(effect_mean$results)
@@ -519,3 +563,51 @@ compute_data_for_ice_splitting = function(effect, testdata) {
 }
 
 
+
+
+
+compute_trees_pdp_cor = function(n.split, models, features, testdata, grid.size, objectives) {
+  
+  # Compute trees for a list of models and a list of objectives on a fixed dataset.
+
+  reslist = list()
+
+  for (i in seq_along(models)) {
+
+    print(paste("Model number", i))
+
+    model = models[[i]]
+
+    results_for_features = lapply(features, function(feature) {
+
+      # Compute an effect just to get the grid points 
+      predictor = Predictor$new(model = model, data = as.data.frame(testdata)[, model$features])
+      effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
+            
+      effect_mean_d = setDT(effect_mean$results)
+      names(effect_mean_d)[2] = "mean"
+
+      sf = c(feature, "mean", ".id")
+      res.pdp = effect_mean_d[.type == "pdp", ..sf]
+      res.ice = effect_mean_d[.type == "ice", ..sf]
+
+      split.feats = setdiff(names(testdata), feature)
+
+
+
+
+
+      trees = lapply(objectives, function(objective) {
+        compute_tree(effect = effect_sd, testdata = testdata, objective = objective, n.split = n.split) 
+      })
+
+      list(res.pdp = res.pdp, res.ice = res.ice, trees = trees)
+    })
+
+    names(results_for_features) = features
+
+    reslist[[i]] = results_for_features
+  }
+
+  reslist
+}

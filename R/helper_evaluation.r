@@ -154,7 +154,7 @@ find_optimal_subset = function(testdata, split.criteria){
 
 
 # mlp separate until surrogate data problem fixed
-get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, method = "pdp_var_sd") {
+get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, optimum, method = "pdp_var_sd", model) {
   
   res.ice = res.ice[which(res.ice$.id %in% idx),]
 
@@ -163,6 +163,7 @@ get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, met
   } else {
     res.pdp = setDT(res.ice)[, .(mean = mean(mean), sd = sqrt(mean(sd^2))), by = pdp.feature]     
   }
+
 
   gt.ice = gt.ice[which(gt.ice$.id %in% idx),]
   res.gt = setDT(gt.ice)[, .(mean = mean(mean)), by = pdp.feature] 
@@ -179,7 +180,25 @@ get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, met
   gt.diff.sd = sd(pp.gt$mean - pp$mean)
   gt.diff.abs.sd = sd(abs(pp.gt$mean - pp$mean))
 
-  df = data.frame(conf.diff, gt.diff.abs, gt.diff.sd, gt.diff.abs.sd, neg_loglik)
+  df = data.frame(conf.diff, gt.diff.abs, gt.diff.sd, gt.diff.abs.sd, neg_loglik) 
+
+  if (!is.null(model)) {
+
+    res.pdp.cov = get_gp_uncertainty(res.pdp, model, pdp.feature, testdata[idx, ])
+
+    # Also get the data with regards to the other uncertainty estimate   
+    conf.diff.cov = sum(res.pdp.cov$sd)
+    gt.diff.abs.cov = sum(abs(pp.gt$mean - res.pdp.cov$mean))
+    gt.diff.sd.cov = sd(pp.gt$mean - res.pdp.cov$mean)
+    gt.diff.abs.sd.cov = sd(abs(pp.gt$mean - res.pdp.cov$mean))
+
+    neg_loglik.cov = mean(unlist(lapply(seq_row(res.pdp.cov), function(i) {
+        - dnorm(pp.gt[i, ]$mean, mean = res.pdp.cov[i, ]$mean, sd = res.pdp.cov[i, ]$sd, log = TRUE) 
+    })))
+
+    df = cbind(df, data.frame(conf.diff.cov, gt.diff.abs.cov, gt.diff.sd.cov, gt.diff.abs.sd.cov, neg_loglik.cov))
+  }
+
   
   # values at the optimum
   pp_dist_opt = abs(pp[, ..pdp.feature] - as.numeric(optimum[, pdp.feature]))
@@ -209,15 +228,26 @@ get_eval_measures_mlp = function(res.ice, gt.ice, idx, pdp.feature, optimum, met
 
 
 
-evaluate_results = function(reslist, optima, gtdata) {
+evaluate_results = function(reslist, optima, gtdata, testdata, models = NULL) {
   
   df = data.frame()
 
   # Iterate over all models we have 
   for (i in seq_along(reslist)) {
 
+    print(paste0("Iteration number ", i, "/", length(reslist)))
+
     resmod = reslist[[i]]
     optimum = optima[i, ]
+
+    if (!is.null(models)) {
+      model = models[[i]]
+    } else {
+      model = NULL
+    }
+
+
+    st = Sys.time()
 
     for (feature in names(resmod)) {
 
@@ -234,7 +264,12 @@ evaluate_results = function(reslist, optima, gtdata) {
 
       source_node = tree[[1]][[1]]
 
-      eval.source_node = get_eval_measures_mlp(res.ice, gt.ice, source_node$subset.idx, feature, optimum[feature])   
+      eval.source_node = get_eval_measures_mlp(
+        res.ice = res.ice, 
+        gt.ice = gt.ice, 
+        testdata = testdata, 
+        idx = source_node$subset.idx, 
+        pdp.feature = feature, optimum = optimum[feature], model = model)   
 
       names(eval.source_node) = paste0("source.", names(eval.source_node))
 
@@ -243,7 +278,12 @@ evaluate_results = function(reslist, optima, gtdata) {
         subtree = tree[seq_len(depth)]
         node = find_optimal_node(subtree, optimum)
 
-        eval.opt = get_eval_measures_mlp(res.ice, gt.ice, node$subset.idx, feature, optimum[feature])
+        eval.opt = get_eval_measures_mlp(
+          res.ice = res.ice, 
+          gt.ice = gt.ice, 
+          testdata = testdata, 
+          idx = node$subset.idx, 
+          pdp.feature = feature, optimum = optimum[feature], model = model)   
 
         values = cbind(model = i, feature = feature, depth = depth, eval.opt, eval.source_node)
 
@@ -254,11 +294,19 @@ evaluate_results = function(reslist, optima, gtdata) {
         }
       }
     }
+
+    et = Sys.time()
+    print(et - st)
+
   }
 
   df$conf.rel = (df$source.conf.diff - df$conf.diff) / df$source.conf.diff
   df$gt.rel = (df$source.gt.diff.abs - df$gt.diff.abs) / df$source.gt.diff.abs
   df$gt.abs = df$source.gt.diff.abs - df$gt.diff.abs
+
+  df$conf.rel.cov = (df$source.conf.diff.cov - df$conf.diff.cov) / df$source.conf.diff.cov
+  df$gt.rel.cov = (df$source.gt.diff.abs.cov - df$gt.diff.abs.cov) / df$source.gt.diff.abs.cov
+  df$gt.abs.cov = df$source.gt.diff.abs.cov - df$gt.diff.abs.cov
 
   for (nn in 1:3) {
     df[, paste0("conf.rel.opt.", nn)] = (df[, paste0("source.conf.diff.opt.", nn)] - df[, paste0("conf.diff.opt.", nn)]) / df[, paste0("source.conf.diff.opt.", nn)]
@@ -270,3 +318,44 @@ evaluate_results = function(reslist, optima, gtdata) {
   return(df)
 }
 
+
+
+get_gp_uncertainty = function(res.pdp, model, feature, testdata) {
+  
+  gridvalues = res.pdp[, ..feature]
+
+  # Extract the learned GP 
+  km = model$learner.model
+
+  # Covtype is needed later to extract the covariance 
+  covtype = attr(km, "covariance")
+
+  res = lapply(seq_row(gridvalues), function(i) {
+
+    gv = as.vector(gridvalues[i, ])
+
+    # Create vector along the gridvalue gv by combining it with the "test dataset"
+    gg = testdata
+    gg[, feature] = gv
+
+    # Compute the posterior mean and covariance of the predictions at points in gg
+    pred = predict(object = km, newdata = gg, type = "SK", cov.compute = TRUE)
+    C = pred$cov
+    m = pred$mean 
+
+    # To boil everything down we have to compute now the mean of this vector, as well as the 
+    # variance over the mean
+    mean_pdp = mean(m)
+    sd_pdp = 1 / nrow(gg) * sqrt(sum(C)) # see Wikipedia "Variance#Sum_of_correlated_variables#Matrix notation" 
+
+    df = data.frame(gv, mean = mean_pdp, sd = sd_pdp)
+    names(df)[1] = feature
+
+    return(df)
+  })
+
+  res = do.call(rbind, res)
+
+  return(res)
+
+}

@@ -73,7 +73,7 @@ tab = summarizeExperiments(
 tosubmit = tab[n.splits == 5, ] # [problem %in% probs, ]
 tosubmit = ijoin(tosubmit, findNotDone())
 tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 50)
-submitJobs(tosubmit, resources = resources.serial)
+submitJobs(tosubmit[chunk != 1, ], resources = resources.serial)
 
 
 # Reduce the ones that are already through
@@ -86,13 +86,15 @@ for (obj in unique(toreduce$objective)) {
 
   for (prob in unique(toreduce$problem)) {
 
-    res = reduceResultsDataTable(toreduce[problem == prob & objective == obj, ], function(x) x$eval)
-    res = ijoin(tab, res)
-    
+
     savepath = file.path("data", "runs", "synthetic", prob)
 
     if (!dir.exists(savepath))
       dir.create(savepath)
+
+    res = reduceResultsDataTable(toreduce[problem == prob & objective == obj, ], function(x) x$eval)
+    res = ijoin(tab, res)
+    
     
     saveRDS(res, file.path(savepath, paste0("eval_", obj, ".rds")))
 

@@ -15,7 +15,7 @@ library(gridExtra)
 
 source("R/pdp_helpers2.R")
 source("R/tree_splitting.R")
-source("R/helper_evaulation.r")
+source("R/helper_evaluation.r")
 #source("R/benchmarks/synthetic/mbo_helpers.R")
 
 
@@ -73,7 +73,14 @@ storepath = file.path(path, dataset, paste0("effects_and_trees2.rds"))
 if (file.exists(storepath)) {
   reslist = readRDS(storepath)
 } else {
-  reslist = compute_trees(n.split = 6, models = models, features = features, optima = optima, testdata = testdata, storepath = storepath)
+    reslist = compute_trees(
+      n.split = 3, 
+      models = models[1:5], 
+      features = features, 
+      testdata = testdata, 
+      grid.size = grid.size, 
+      objective = "var_cor_sim"
+    )     
 }
 
 plotpath = file.path(path, dataset, "plots")

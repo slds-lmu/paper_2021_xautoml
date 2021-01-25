@@ -41,10 +41,10 @@ resources.serial = list(
 
 reg = loadRegistry(registry_name, writeable = TRUE)
 tab = summarizeExperiments(
-  by = c("job.id", "algorithm", "problem", "objective", "grid.size", "testdata.size", "n.splits"), reg = reg)
+  by = c("job.id", "algorithm", "problem", "objective", "lambda", "grid.size", "testdata.size", "n.splits"), reg = reg)
 
 # Submit MBO runs 
-tosubmit = tab[n.splits == 6, ]
+tosubmit = tab[problem == "adult" & n.splits == 6 & lambda == 2, ]
 tosubmit = ijoin(tosubmit, findNotDone())
 tosubmit = tosubmit[- which(job.id %in% findRunning()$job.id), ]
 tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 3)
@@ -54,9 +54,29 @@ submitJobs(tosubmit, resources = resources.serial)
 
 # Store the results that are already ready 
 
+tab = tab[n.splits == 6, ]
+lambda = 1
+
 reg = loadRegistry(registry_name, writeable = FALSE)
 
 for (prob in unique(tab$prob)) {
+
+  # read models since they are needed for evaluation
+  rundata = readRDS(file.path("data/runs/mlp_new", prob, "1_1_mlrmbo_runs", paste0("mlrmbo_run_lambda_", lambda, "_30repls.rds")))
+  models = lapply(rundata$result, function(res) {
+    mods = res$models
+    mods[[length(mods)]] # get the last model 
+  })
+
+  gtdata = readRDS(file.path("data/runs/mlp_new", prob, "2_2_groundtruth_pdps", paste0("gtpdp_", grid.size, "_", testdata.size, ".rds")))$pdp_ice_groundtruth
+  mbo_optima = lapply(rundata$result, function(res) {
+    res$opt.path[which.min(res$opt.path$y), ]
+  })
+
+  mbo_optima = do.call(rbind, mbo_optima)
+  mbo_optima$iter = seq_len(nrow(mbo_optima))
+
+  testdata = readRDS(file.path("data/runs/mlp_new", prob, "2_1_testdata", paste0("testdata_", testdata.size, ".rds")))
 
   for (obj in unique(tab$objective)) {
 
@@ -64,24 +84,26 @@ for (prob in unique(tab$prob)) {
 
     if (nrow(ijoin(findDone(), subres)) == 1) {
 
-      res = reduceResultsDataTable(subres)
-      res = ijoin(tab, res)
-
-      if (is.null(res$result[[1]]$eval)) {
-        source("R/helper_evaluation.r")
-        x = res$result[[1]]
-        out = evaluate_results(x$reslist, x$mbo_optima, x$gtdata)
-                
-        res$result[[1]] = list(reslist = x$reslist, eval = out, runtime = x$runtime)
-      }
-      
-      grid.size = res$grid.size
-      testdata.size = res$testdata.size
+      grid.size = subres$grid.size
+      testdata.size = subres$testdata.size
 
       savepath = file.path("data/runs/mlp_new/", prob, "2_3_effects_and_trees", paste0("eval_", obj, "_", grid.size, "_", testdata.size, ".rds"))
 
-      if (!file.exists(savepath))
+      if (!file.exists(savepath)) {
+
+        res = reduceResultsDataTable(subres)
+        res = ijoin(tab, res)
+
+        if (is.null(res$result[[1]]$eval)) {
+          source("R/helper_evaluation.r")
+          x = res$result[[1]]
+          out = evaluate_results(x$reslist, mbo_optima, gtdata, models)
+                  
+          res$result[[1]] = list(reslist = x$reslist, eval = out, runtime = x$runtime)
+        }
+
         saveRDS(res, savepath)    
+      }
     }
   }
 }
