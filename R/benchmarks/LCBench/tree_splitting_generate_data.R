@@ -49,7 +49,7 @@ tosubmit = ijoin(tosubmit, findNotDone())
 tosubmit = tosubmit[- which(job.id %in% findRunning()$job.id), ]
 tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 3)
 
-submitJobs(tosubmit, resources = resources.serial)
+submitJobs(tosubmit[objective %in% c("SS_L1", "SS_sd"), ], resources = resources.serial)
 
 
 # Store the results that are already ready 
@@ -64,8 +64,16 @@ for (prob in unique(tab$prob)) {
 
     if (nrow(ijoin(findDone(), subres)) == 1) {
 
-      res = reduceResultsDataTable(subres, function(x) x$eval)
+      res = reduceResultsDataTable(subres)
       res = ijoin(tab, res)
+
+      if (is.null(res$result[[1]]$eval)) {
+        source("R/helper_evaluation.r")
+        x = res$result[[1]]
+        out = evaluate_results(x$reslist, x$mbo_optima, x$gtdata)
+                
+        res$result[[1]] = list(reslist = x$reslist, eval = out, runtime = x$runtime)
+      }
       
       grid.size = res$grid.size
       testdata.size = res$testdata.size

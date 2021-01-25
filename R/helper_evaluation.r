@@ -75,6 +75,8 @@ find_optimal_node = function(tree, optimum){
       } else {
         node = node$children$right.child
       }
+    } else {
+      break
     }
   }
 
