@@ -72,7 +72,7 @@ tab = summarizeExperiments(
 # Submit MBO runs 
 tosubmit = tab[n.splits == 5, ] # [problem %in% probs, ]
 tosubmit = ijoin(tosubmit, findNotDone())
-tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 200)
+tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 50)
 submitJobs(tosubmit, resources = resources.serial)
 
 

@@ -65,7 +65,7 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
     ps = getParamSet(obj)
     pl = getParamLengths(ps)
 
-    max.evals = switch(which(pl == c(2, 3, 5, 10)), 50, 80, 150, 250)
+    max.evals = switch(which(pl == c(2, 3, 5, 8, 10)), 50, 80, 150, 250, 250)
 
     if (lambda == 1000) {
         init_design = max.evals
