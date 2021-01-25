@@ -35,7 +35,7 @@ addExperiments(
 # SUBMIT THE JOBS
 
 resources.serial = list(
-  walltime = 3600L * 24L * 4L, memory = 1024L * 4L,
+  walltime = 3600L * 24L * 2L, memory = 1024L * 2L,
   clusters = "serial", max.concurrent.jobs = 1000L # get name from lrz homepage)
 )
 
@@ -44,12 +44,12 @@ tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem", "objective", "grid.size", "testdata.size", "n.splits"), reg = reg)
 
 # Submit MBO runs 
-tosubmit = tab[n.splits == 6 & objective == "SS_area", ]
+tosubmit = tab[n.splits == 6, ]
 tosubmit = ijoin(tosubmit, findNotDone())
-tosubmit = tosubmit[- which(job.id %in% findRunning()), ]
-tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 2)
+tosubmit = tosubmit[- which(job.id %in% findRunning()$job.id), ]
+tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 3)
 
-submitJobs(tosubmit[chunk == 1, ], resources = resources.serial)
+submitJobs(tosubmit, resources = resources.serial)
 
 
 # Store the results that are already ready 

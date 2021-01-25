@@ -60,17 +60,42 @@ addExperiments(
 # --- 3. SUBMIT ON LRZ ---
 
 resources.serial = list(
-  walltime = 3600L * 24L * 4L, memory = 1024L * 2L,
+  walltime = 3600L * 24L * 2L, memory = 1024L * 2L,
   clusters = "serial", max.concurrent.jobs = 1000L # get name from lrz homepage)
 )
 
 reg = loadRegistry(registry_name, writeable = TRUE)
 # reg$source = "R/benchmarks/LCBench/config.R"
 tab = summarizeExperiments(
-  by = c("job.id", "algorithm", "problem", "lambda", "objective"))
+  by = c("job.id", "algorithm", "problem", "lambda", "objective", "n.splits"))
 
 # Submit MBO runs 
-tosubmit = tab # [problem %in% probs, ]
+tosubmit = tab[n.splits == 5, ] # [problem %in% probs, ]
 tosubmit = ijoin(tosubmit, findNotDone())
-tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 100)
-submitJobs(tosubmit[chunk == 1, ], resources = resources.serial)
+tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 200)
+submitJobs(tosubmit, resources = resources.serial)
+
+
+# Reduce the ones that are already through
+
+reg = loadRegistry(registry_name, writeable = FALSE)
+
+toreduce = ijoin(tab, findDone())
+
+for (obj in unique(toreduce$objective)) {
+
+  for (prob in unique(toreduce$problem)) {
+
+    res = reduceResultsDataTable(toreduce[problem == prob & objective == obj, ], function(x) x$eval)
+    res = ijoin(tab, res)
+    
+    savepath = file.path("data", "runs", "synthetic", prob)
+
+    if (!dir.exists(savepath))
+      dir.create(savepath)
+    
+    saveRDS(res, file.path(savepath, paste0("eval_", obj, ".rds")))
+
+  }
+
+}

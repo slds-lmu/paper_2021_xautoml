@@ -93,21 +93,27 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	testdata = readRDS(file.path(instance, "2_1_testdata", paste0("testdata_", testdata.size, ".rds")))
 
 	start_t = Sys.time()
-	reslist = compute_trees(
-		n.split = n.splits, 
-		models = models, 
-		features = features, 
-		testdata = testdata, 
-		grid.size = grid.size, 
-		objective = objective
-	) 
+	suppressWarnings({
+		reslist = compute_trees(
+			n.split = n.splits, 
+			models = models, 
+			features = features, 
+			testdata = testdata, 
+			grid.size = grid.size, 
+			objective = objective
+		) 		
+	})
+
     end_t = Sys.time()
 
-	eval = evaluate_results(reslist, mbo_optima, gtdata)
+	# eval = evaluate_results(reslist, mbo_optima, gtdata)
+	eval = NULL
 
     return(list(
     	reslist = reslist, 
     	eval = eval, 
+        mbo_optima = mbo_optima, 
+        gtdata = gtdata, 
     	runtime = as.integer(end_t) - as.integer(start_t)
     	)
     )
