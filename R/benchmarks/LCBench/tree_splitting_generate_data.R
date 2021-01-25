@@ -49,7 +49,7 @@ tosubmit = ijoin(tosubmit, findNotDone())
 tosubmit = tosubmit[- which(job.id %in% findRunning()$job.id), ]
 tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 3)
 
-submitJobs(tosubmit[objective %in% c("SS_L1", "SS_sd"), ], resources = resources.serial)
+submitJobs(tosubmit, resources = resources.serial)
 
 
 # Store the results that are already ready 

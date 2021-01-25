@@ -44,7 +44,7 @@ lapply(packages, library, character.only = TRUE)
 TASK_LOCATION = "data/runs/synthetic/"
 
 tasks = c("StyblinskiTang")
-dimensions = c(2, 3, 5, 10)
+dimensions = c(2, 3, 5, 8, 10)
 
 
 pdes = data.table(tasks = tasks, dimensions = dimensions)
@@ -79,7 +79,7 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
     ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
 	set.seed(1234)        
-    des = generateDesign(n = init_design, par.set = ps, fun = lhs::randomLHS)
+    des = generateRandomDesign(n = init_design, par.set = ps)
 
     lrn = makeLearner("regr.km", predict.type = "se", covtype = "matern3_2", optim.method = "gen", nugget.stability = 10^(-8))
     
