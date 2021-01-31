@@ -75,12 +75,6 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	# Read in the ground-truth 
 	gtdata = readRDS(file.path(instance, "2_2_groundtruth_pdps", paste0("gtpdp_", grid.size, "_", testdata.size, ".rds")))$pdp_ice_groundtruth
 
-	# gtdata = lapply(gtdata, function(el) {
-	# 	elt = el
-	# 	elt[[2]] = elt[[2]][method %in% c(paste0("mlrmbo_lambda", lambda)), ]
-	# 	elt
-	# })
-
 	# Found optimal values for the different mbo runs 
 	mbo_optima = lapply(rundata$result, function(res) {
 		res$opt.path[which.min(res$opt.path$y), ]
@@ -96,7 +90,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 	suppressWarnings({
 		reslist = compute_trees(
 			n.split = n.splits, 
-			models = models, 
+			models = models[1], 
 			features = features, 
 			testdata = testdata, 
 			grid.size = grid.size, 

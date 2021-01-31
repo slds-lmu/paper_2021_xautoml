@@ -3,10 +3,7 @@ createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_s
 
     ps = getParamSet(fun)
 
-    if (type == "LHS") {
-        max.evals = max.evals + 1
-        lambda = 100        
-    }
+
 
     ctrl = makeMBOControl(store.model.at = seq_len(max.evals))
     ctrl = setMBOControlTermination(ctrl, max.evals = max.evals)
@@ -14,6 +11,13 @@ createMBOrun = function(fun, max.evals, lambda, type = "MBO", store_path, init_s
 
     if (is.null(init_size))
         init_size = 4 * getParamLengths(ps)
+
+
+    if (type == "LHS") {
+        init_size = max.evals - 1
+        max.evals = max.evals + 1
+        lambda = 100        
+    }
 
     if (!is.null(seed))
         set.seed(seed)

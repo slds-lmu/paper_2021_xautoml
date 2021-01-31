@@ -1,4 +1,4 @@
-marginal_effect = function(obj, feature, data, model, grid.size, method = "pdp+ice") {
+marginal_effect = function(obj, feature, data, model, all.features, grid.size, method = "pdp+ice") {
         
     mymodel = makeS3Obj("mymodel", fun = function(data) return(apply(data[, all.features], 1, obj)))
                         
@@ -15,7 +15,7 @@ marginal_effect = function(obj, feature, data, model, grid.size, method = "pdp+i
     return(res)
 }
 
-marginal_effect_mlp = function(obj, feature, data, all.features, grid.size, optima, method = "pdp+ice") {
+marginal_effect_mlp = function(obj, feature, data, all.features, grid.size, method = "pdp+ice") {
         
     mymodel = makeS3Obj("mymodel", fun = function(data) {
         res = lapply(seq_row(data), function(i) {
@@ -27,19 +27,20 @@ marginal_effect_mlp = function(obj, feature, data, all.features, grid.size, opti
     predict.mymodel = function(object, newdata) {
         object$fun(newdata)
     }
-                        
+    
+    data = as.data.frame(data)
     predictor = Predictor$new(model = mymodel, data = data[, all.features], predict.function = predict.mymodel)
     effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = method)
     
     res = effects$results
     names(res)[1:2] = c(feature, "mean")
     
-    optimum = as.data.frame(optima[, ..all.features])
-    res.optimum = data.frame(feature = optimum[, feature], "mean" = effects$predict(optimum, extrapolate = TRUE), "run" = c(rep(1:30, 4), 1))
-    names(res.optimum)[1] = c(feature)   
-    res.optimum = cbind(optima[, c("method", "iter")], res.optimum)
+    # optimum = as.data.frame(optima)[, all.features]
+    # res.optimum = data.frame(feature = optimum[, feature], "mean" = effects$predict(optimum, extrapolate = TRUE), "run" = c(rep(1:30, 4), 1))
+    # names(res.optimum)[1] = c(feature)   
+    # res.optimum = cbind(optima[, c("method", "iter")], res.optimum)
 
-    return(list(res, res.optimum))
+    return(res) # list(res, res.optimum))
 }
 
 
@@ -104,7 +105,7 @@ marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method,
     if (method %in% c("pdp_var_gp")) {
     
     	# Extract the grid points from the above PDP, such that we make sure we take the same grid points
-    	gridvalues = res[, feature]
+    	gridvalues = res.pdp[, feature]
 
     	# Extract the learned GP 
     	km = model$learner.model

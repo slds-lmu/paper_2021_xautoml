@@ -44,12 +44,12 @@ tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem", "objective", "lambda", "grid.size", "testdata.size", "n.splits"), reg = reg)
 
 # Submit MBO runs 
-tosubmit = tab[problem == "adult" & n.splits == 6 & lambda == 2, ]
+tosubmit = tab[objective %in% c("SS_sd", "SS_L1") & lambda == 2, ]
 tosubmit = ijoin(tosubmit, findNotDone())
 tosubmit = tosubmit[- which(job.id %in% findRunning()$job.id), ]
 tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 3)
 
-submitJobs(tosubmit, resources = resources.serial)
+submitJobs(tosubmit[2:70, ], resources = resources.serial)
 
 
 # Store the results that are already ready 
@@ -60,6 +60,8 @@ lambda = 1
 reg = loadRegistry(registry_name, writeable = FALSE)
 
 for (prob in unique(tab$prob)) {
+
+  print(prob)
 
   # read models since they are needed for evaluation
   rundata = readRDS(file.path("data/runs/mlp_new", prob, "1_1_mlrmbo_runs", paste0("mlrmbo_run_lambda_", lambda, "_30repls.rds")))
@@ -87,7 +89,12 @@ for (prob in unique(tab$prob)) {
       grid.size = subres$grid.size
       testdata.size = subres$testdata.size
 
-      savepath = file.path("data/runs/mlp_new/", prob, "2_3_effects_and_trees", paste0("eval_", obj, "_", grid.size, "_", testdata.size, ".rds"))
+      savepath = file.path("results/tree_splitting_reduced", prob)
+
+      if (!dir.exists(savepath))
+        dir.create(savepath)
+
+      savepath = file.path(savepath, paste0("eval_", obj, "_", grid.size, "_", testdata.size, ".rds"))
 
       if (!file.exists(savepath)) {
 
@@ -95,11 +102,13 @@ for (prob in unique(tab$prob)) {
         res = ijoin(tab, res)
 
         if (is.null(res$result[[1]]$eval)) {
-          source("R/helper_evaluation.r")
+
           x = res$result[[1]]
-          out = evaluate_results(x$reslist, mbo_optima, gtdata, models)
+          out = evaluate_results(x$reslist, mbo_optima, gtdata)
                   
-          res$result[[1]] = list(reslist = x$reslist, eval = out, runtime = x$runtime)
+          res$result[[1]] = list(eval = out, runtime = x$runtime)
+        } else {
+          res$result[[1]]$reslist = NULL
         }
 
         saveRDS(res, savepath)    
@@ -108,3 +117,48 @@ for (prob in unique(tab$prob)) {
   }
 }
 
+
+
+
+# Get the trees for some of the datasets
+
+problems = c("cnae-9", "higgs", "helena", "Amazon_employee_access", "shuttle")
+
+tab = summarizeExperiments(
+  by = c("job.id", "algorithm", "problem", "objective", "lambda", "grid.size", "testdata.size", "n.splits"), reg = reg)
+
+tab = tab[n.splits == 6, ]
+
+
+for (prob in problems) {
+
+  print(prob)
+
+  # read models since they are needed for evaluation
+
+  obj = "SS_L2"
+
+  subres = tab[problem == prob & objective == obj, ]
+
+  if (nrow(ijoin(findDone(), subres)) == 1) {
+
+    grid.size = subres$grid.size
+    testdata.size = subres$testdata.size
+
+    savepath = file.path("results", "tmp", prob)
+
+    if (!dir.exists(savepath))
+      dir.create(savepath)
+
+    savepath = file.path(savepath, "trees.rds")
+
+    if (!file.exists(savepath)) {
+
+      res = reduceResultsDataTable(subres)
+      res = ijoin(tab, res)
+
+      saveRDS(res, savepath)    
+    }
+  }
+  }
+}
