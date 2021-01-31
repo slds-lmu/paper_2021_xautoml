@@ -20,7 +20,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
     # registry name for storing files on drive     
-		registry_name = "results/synthetic_tree_splitting"
+		registry_name = "results/synthetic_tree_splitting_enhanced_eval"
 	}
 )
 
