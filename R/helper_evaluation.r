@@ -154,7 +154,7 @@ find_optimal_subset = function(testdata, split.criteria){
 
 
 # mlp separate until surrogate data problem fixed
-get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, optimum, method = "pdp_var_sd", model) {
+get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, optimum, method = "pdp_var_sd", model = NULL) {
   
   res.ice = res.ice[which(res.ice$.id %in% idx),]
 
@@ -163,7 +163,6 @@ get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, op
   } else {
     res.pdp = setDT(res.ice)[, .(mean = mean(mean), sd = sqrt(mean(sd^2))), by = pdp.feature]     
   }
-
 
   gt.ice = gt.ice[which(gt.ice$.id %in% idx),]
   res.gt = setDT(gt.ice)[, .(mean = mean(mean)), by = pdp.feature] 
@@ -184,7 +183,7 @@ get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, op
 
   if (!is.null(model)) {
 
-    res.pdp.cov = get_gp_uncertainty(res.pdp, model, pdp.feature, testdata[idx, ])
+    res.pdp.cov = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = testdata[idx, ], grid.size = 20, method = "pdp_var_gp") 
 
     # Also get the data with regards to the other uncertainty estimate   
     conf.diff.cov = sum(res.pdp.cov$sd)
