@@ -154,7 +154,7 @@ find_optimal_subset = function(testdata, split.criteria){
 
 
 # mlp separate until surrogate data problem fixed
-get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, optimum, method = "pdp_var_sd", model) {
+get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, optimum, method = "pdp_var_sd", model = NULL) {
   
   res.ice = res.ice[which(res.ice$.id %in% idx),]
 
@@ -163,7 +163,6 @@ get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, op
   } else {
     res.pdp = setDT(res.ice)[, .(mean = mean(mean), sd = sqrt(mean(sd^2))), by = pdp.feature]     
   }
-
 
   gt.ice = gt.ice[which(gt.ice$.id %in% idx),]
   res.gt = setDT(gt.ice)[, .(mean = mean(mean)), by = pdp.feature] 
@@ -184,7 +183,7 @@ get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, op
 
   if (!is.null(model)) {
 
-    res.pdp.cov = get_gp_uncertainty(res.pdp, model, pdp.feature, testdata[idx, ])
+    res.pdp.cov = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = testdata[idx, ], grid.size = 20, method = "pdp_var_gp") 
 
     # Also get the data with regards to the other uncertainty estimate   
     conf.diff.cov = sum(res.pdp.cov$sd)
@@ -269,7 +268,9 @@ evaluate_results = function(reslist, optima, gtdata, testdata, models = NULL) {
         gt.ice = gt.ice, 
         testdata = testdata, 
         idx = source_node$subset.idx, 
-        pdp.feature = feature, optimum = optimum[feature], model = model)   
+        pdp.feature = feature, 
+        optimum = optimum[feature], 
+        model = model)   
 
       names(eval.source_node) = paste0("source.", names(eval.source_node))
 
@@ -304,9 +305,12 @@ evaluate_results = function(reslist, optima, gtdata, testdata, models = NULL) {
   df$gt.rel = (df$source.gt.diff.abs - df$gt.diff.abs) / df$source.gt.diff.abs
   df$gt.abs = df$source.gt.diff.abs - df$gt.diff.abs
 
-  df$conf.rel.cov = (df$source.conf.diff.cov - df$conf.diff.cov) / df$source.conf.diff.cov
-  df$gt.rel.cov = (df$source.gt.diff.abs.cov - df$gt.diff.abs.cov) / df$source.gt.diff.abs.cov
-  df$gt.abs.cov = df$source.gt.diff.abs.cov - df$gt.diff.abs.cov
+  if ("conf.diff.cov" %in% names(df)) {
+    df$conf.rel.cov = (df$source.conf.diff.cov - df$conf.diff.cov) / df$source.conf.diff.cov
+    df$gt.rel.cov = (df$source.gt.diff.abs.cov - df$gt.diff.abs.cov) / df$source.gt.diff.abs.cov
+    df$gt.abs.cov = df$source.gt.diff.abs.cov - df$gt.diff.abs.cov
+  }
+
 
   for (nn in 1:3) {
     df[, paste0("conf.rel.opt.", nn)] = (df[, paste0("source.conf.diff.opt.", nn)] - df[, paste0("conf.diff.opt.", nn)]) / df[, paste0("source.conf.diff.opt.", nn)]
@@ -320,42 +324,36 @@ evaluate_results = function(reslist, optima, gtdata, testdata, models = NULL) {
 
 
 
-get_gp_uncertainty = function(res.pdp, model, feature, testdata) {
+get_gp_uncertainty = function(gg, idx, returnC = FALSE) {
   
-  gridvalues = res.pdp[, ..feature]
 
-  # Extract the learned GP 
-  km = model$learner.model
+  # Compute the covariance matrix at this point 
 
-  # Covtype is needed later to extract the covariance 
-  covtype = attr(km, "covariance")
+  idx.subspace = which(gg$.id %in% idx)
+  idx.cond = setdiff(seq_row(gg), idx.subspace)
 
-  res = lapply(seq_row(gridvalues), function(i) {
+  # compute the latter part
+  if (length(idx.cond) == 0) {
+    Ccond = C
+  } else {
+    # Ct = solve(C[idx.cond, idx.cond], t(C[idx.subspace, idx.cond]))
 
-    gv = as.vector(gridvalues[i, ])
+    # Compute the uncertainty estimate 
+    Ccond = C[idx.subspace, idx.subspace] # - crossprod(t(C[idx.subspace, idx.cond]), Ct)
+  }
 
-    # Create vector along the gridvalue gv by combining it with the "test dataset"
-    gg = testdata
-    gg[, feature] = gv
 
-    # Compute the posterior mean and covariance of the predictions at points in gg
-    pred = predict(object = km, newdata = gg, type = "SK", cov.compute = TRUE)
-    C = pred$cov
-    m = pred$mean 
+  ggsub = setDT(gg[idx.subspace, ])
 
-    # To boil everything down we have to compute now the mean of this vector, as well as the 
-    # variance over the mean
-    mean_pdp = mean(m)
-    sd_pdp = 1 / nrow(gg) * sqrt(sum(C)) # see Wikipedia "Variance#Sum_of_correlated_variables#Matrix notation" 
+  # At every grid point, compute the sum of all covariances 
+  out = lapply(gridvalues, function(gv) {
 
-    df = data.frame(gv, mean = mean_pdp, sd = sd_pdp)
-    names(df)[1] = feature
-
-    return(df)
+    idxs = which(ggsub[[feature]] %in% gv)
+    Ccondidx = Ccond[idxs, idxs]
+    mean(Ccondidx)
   })
 
-  res = do.call(rbind, res)
+  out = unlist(out)
 
-  return(res)
-
+  sqrt(out)
 }

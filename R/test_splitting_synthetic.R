@@ -16,7 +16,7 @@ source("R/pdp_helpers.R")
 source("R/tree_splitting.R")
 source("R/helper_evaulation.R")
 source("R/benchmarks/synthetic/mbo_helpers.R")
-
+source("R/mbo_helpers.R")
 
 # get all data and models and objective
 path = "data/StyblinskiTang/"
@@ -25,15 +25,56 @@ set.seed(123)
 data = get_all(path, folder, 500)
 
 
-feat = "x3"
+id = "StyblinskiTang"
 
-# effects - example
-model = data[["10D"]]$model[[0.10]]
-effect = get_ice_curves(model = model, data = data[["10D"]]$testset, feature = feat, mean = FALSE)
-objective = data[["10D"]]$objective
+dimension = 2
+
+obj = makeSingleObjectiveFunction(name = paste0(id, dimension, "D"), fn = function(x) {
+        1 / 2 * sum(x^4 - 16 * x^2 + 5 * x)
+    }, 
+    par.set = makeParamSet(makeNumericVectorParam(id = "x", len = dimension, lower = - 5, upper = 5)), 
+    global.opt.params = rep(-2.9035, dimension)
+)
+ps = getParamSet(obj)
+
+lambdas = c(0.1, 1, 2, 5, 100)
+runs = lapply(lambdas, function(lambda) {
+    path = file.path("data/runs/synthetic", paste0(id, ""), paste0(dimension, "D"))
+    readRDS(file.path(path, paste0("mlrmbo_run_lambda_", lambda, "matern32.rds")))
+})
+
+types = get_types_of_runs(runs)
+names(runs) = types
+models = extract_models(runs)
+names(models) = types
+
+
+model_for_interpretation = "MBO_0.1"
+model = models[[model_for_interpretation]]
+feat = "x1"
+
+mymodel = makeS3Obj("mymodel", fun = function() return(model))
+predict.mymodel = function(object, newdata) {
+  pred = predict(object$fun(), newdata = newdata)
+  pp = getPredictionSE(pred)
+  return(pp)
+}
+
+df = generateRandomDesign(n = 1000, par.set = getParamSet(obj))
+
+ps_ids = getParamIds(ps, with.nr = TRUE, repeated = TRUE)
+
+predictor = Predictor$new(model = mymodel, data = df[, ps_ids], predict.function = predict.mymodel)
+effect = FeatureEffect$new(predictor = predictor, feature = feat, method = "ice")
+
 
 # Compute tree
-tree = compute_tree(model, data[["10D"]]$testset, feat, "SS_area", n.split = 2)
+tree = compute_tree(effect = effect, testdata = df, objective = "SS_L2", n.split = 2)
+
+plot_tree_pdps(tree, df = testdata, model = model, pdp.feature = feat, depth = 2, grid.size = 20)
+
+
+
 test = node$subset.idx
 
 optimum = rep(-2.9035, 10)

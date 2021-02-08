@@ -100,7 +100,7 @@ compute_tree = function(effect_sd, testdata, objective, n.split) {
       require(Rfast)
 
       ypred = colMeans(as.matrix(y))
-      sum(t((t(y) - ypred)^2))    
+      min(t((t(y) - ypred)^2))    
     } 
 
     input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
@@ -175,7 +175,7 @@ compute_tree = function(effect_sd, testdata, objective, n.split) {
     input.data = list(X = X[, ..split.feats, drop = FALSE], Y = Y)
   }
 
-  else if (objective == "var_cor_sim") {
+  else if (objective == "var_gp") {
 
     pdp.feat = effect_sd$feature.name
     split.feats = setdiff(names(testdata), pdp.feat)
@@ -184,41 +184,12 @@ compute_tree = function(effect_sd, testdata, objective, n.split) {
     X = setDT(testdata)
     Y = data.table(.id = seq_row(testdata))
 
-    # Get all grid points
-    gridvalues = effect_sd$results[.type == "pdp", ..pdp.feat, drop = TRUE]
-    gs = nrow(gridvalues)
-
-    km = model$learner.model
-
-    # Covtype is needed later to extract the covariance 
-    covtype = attr(km, "covariance")
-  
-    res = lapply(seq_row(gridvalues), function(j) {
-
-      gv = as.numeric(gridvalues[j, ])
-
-      # Create vector along the gridvalue gv by combining it with the "test dataset"
-      gg = merge(gv, testdata[, ..split.feats])
-      names(gg) = c(pdp.feat, split.feats)
-      gg = gg[, names(testdata)]
-
-      # Compute the posterior mean and covariance of the predictions at points in gg
-      pred = predict(object = km, newdata = gg, type = "SK", cov.compute = TRUE)
-      C = pred$cov
-
-      return(C)
-    })
-
-    res = do.call(cbind, res)
-
     # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
 
       y = y$.id
 
-      y2 = rep(y, gs) + rep(seq(0, gs - 1) * 1000, each = length(y))
-
-      sum(res[y, y2])
+      mean(get_gp_uncertainty(gg, y))
     } 
 
     input.data = list(X = X[, ..split.feats, drop = FALSE], Y = Y)
@@ -279,6 +250,7 @@ compute_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, o
     data = testdata[node$subset.idx, ]
     data = as.data.frame(data)
     pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, grid.size = grid.size, method = method)
+    pp = pp$pdp
     
     q = qnorm(1 - alpha / 2)
     pp$lower = pp$mean - q * pp$sd
@@ -287,7 +259,7 @@ compute_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, o
 
     pp.gt = NULL
     if (!is.null(objective.gt))
-      pp.gt = marginal_effect(objective.gt, pdp.feature, data, model, grid.size)
+      pp.gt = marginal_effect(obj = objective.gt, feature = pdp.feature, data = data,model =  model, grid.size = grid.size, all.features = model$features, method = "pdp")
 
     return(list(pdp_data = pp, pdp_groundtruth_data = pp.gt))
 }
@@ -374,7 +346,7 @@ plot_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, obje
   return(p)
 }
 
-plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, method = "pdp_var_gp", alpha = 0.05, best_candidate = NULL) {
+plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, method = "pdp_var_gp", alpha = 0.05, grid.size, best_candidate = NULL) {
 
     # tree object
     # df:  the tree was used to compute the pdps
@@ -450,6 +422,7 @@ plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, metho
         testdata = df_orig,
         model = model, 
         pdp.feature = pdp.feature, 
+        grid.size = grid.size,
         objective.gt = obj, 
         method = method, 
         alpha = alpha)

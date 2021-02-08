@@ -20,7 +20,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
     # registry name for storing files on drive     
-		registry_name = "results/synthetic_tree_splitting"
+		registry_name = "results/synthetic_tree_splitting_enhanced_eval"
 	}
 )
 
@@ -115,12 +115,12 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
 
     names(gtdata) = features
 
-
     print("Perform Evaluation")
-	eval = evaluate_results(reslist, mbo_optima, gtdata)
+	eval = evaluate_results(reslist = reslist, optima = mbo_optima, gtdata = gtdata, testdata = testdata, models = models)
 
     return(list(
-    	mbo_run = res,
+    	opt.path = opdf, 
+    	models = models, 
     	reslist = reslist, 
     	eval = eval, 
     	runtime = as.integer(end_t) - as.integer(start_t)

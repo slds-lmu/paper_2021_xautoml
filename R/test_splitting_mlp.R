@@ -28,7 +28,7 @@ path = "data/runs/mlp_new/"
 folder_mlp = c("phoneme")
 
 # lambda we want to do the analysis for 
-lambda = 1
+lambda = 2
 
 # -- 2. READ ALL THE DATA 
 data = get_data(path, folder_mlp, lambda = lambda)
@@ -41,10 +41,10 @@ all_optima = get_optima(data)
 
 dataset = "phoneme"
 grid.size = 20
-testdata.size = 1000
+testdata.size = 200
 
 # Ground-truth
-obj = objectives[[dataset]]$obj
+obj = objectives[[dataset]]$obj$obj
 surr_val = objectives[[dataset]]$surrogate_model
 ps = getParamSet(obj)
 
@@ -109,19 +109,125 @@ ggsave(file.path(plotpath, "gt_rel.png"), p, width = 12, height = 3)
 
 # plot an example tree
 
+testdata.size = 500
+
+testdata = generateRandomDesign(n = testdata.size, par.set = ps) # TODO: n must be much higher, this is just for testing
+
+# Extract the learned GP 
+model = models[[2]]
+km = model$learner.model
+
+# Covtype is needed later to extract the covariance 
+covtype = attr(km, "covariance")
+
+df = testdata
+df$.id = seq_row(df)
+df = setDT(df)
+df[[feature]] = NULL
+
+# Compute all ice curves 
+gg = expand.grid(.id = seq_row(df), gridvalues)
+gg = merge(gg, df, by = ".id")
+names(gg)[2] = feature
+
+pred = predict(object = km, newdata = gg[, model$features], type = "SK", cov.compute = TRUE)
+C = pred$cov
+
+# Compute a tree and compute 
+reslist = compute_trees(
+  n.split = 2, 
+  models = models[2], 
+  features = features, 
+  testdata = testdata, 
+  grid.size = grid.size, 
+  objective = "var_gp"
+)   
+
+feature = "learning_rate"
+
+bla = reslist[[1]][[feature]]
+res.pdp = bla$res.pdp
+res.ice = bla$res.ice
+tree = bla$tree[[1]]
+
+gridvalues = res.pdp[[feature]]
 
 
 
-# ------
+source.sd = get_gp_uncertainty(gg, tree[[1]][[1]]$subset.idx)
+sum(source.sd)
+
+# sd of level 1 subnoides
+out = lapply(tree[[2]], function(node) get_gp_uncertainty(gg, node$subset.idx))
+lapply(out, sum)
+
+out = lapply(tree[[3]], function(node) get_gp_uncertainty(gg, node$subset.idx))
+lapply(out, sum)
+
+out = lapply(tree[[4]], function(node) get_gp_uncertainty(gg, node$subset.idx))
+lapply(out, sum)
+
+out = lapply(tree[[5]], function(node) get_gp_uncertainty(gg, node$subset.idx))
+lapply(out, sum)
+
+out = lapply(tree[[6]], function(node) get_gp_uncertainty(gg, node$subset.idx))
+unlist(lapply(out, sum))
+
+out = lapply(tree[[9]], function(node) get_gp_uncertainty(gg, node$subset.idx))
+min(unlist(lapply(out, sum)), na.rm = TRUE)
 
 
+opt_node = find_optimal_node(tree, optima[[1]])
 
+opt_node = tree[[6]][[2]]
+
+# Compute the pdp with the new variance estimate for that node 
+res.ice.sub = res.ice[.id %in% opt_node$subset.idx, ]
+
+res.pdp.sub = res.ice.sub[, .(mean = mean(mean)), by = c(feature)]
+res.pdp.sub = cbind(res.pdp.sub, sd = out[[2]])
+res.pdp.sub$lower = res.pdp.sub$mean - 2 * res.pdp.sub$sd
+res.pdp.sub$upper = res.pdp.sub$mean + 2 * res.pdp.sub$sd
+
+# Also get the ground truth
+# gtdata = marginal_effect_mlp(obj = obj, feature = feature, data = as.data.frame(testdata), all.features = model$features, grid.size = grid.size, method = "pdp+ice")
+
+gt.pdp = setDT(gtdata)[.type == "pdp", ]
+
+gt.pdp.sub = gtdata[.id %in% opt_node$subset.idx, ]
+gt.pdp.sub = gt.pdp.sub[, .(mean = mean(mean)), by = c(feature)]
+
+# And for the highest node 
+res.pdp$sd = get_gp_uncertainty(gg, tree[[1]][[1]]$subset.idx)
+res.pdp$lower = res.pdp$mean - 2 * res.pdp$sd
+res.pdp$upper = res.pdp$mean + 2 * res.pdp$sd
+
+
+p1 = ggplot() + geom_ribbon(data = res.pdp, aes_string(x = feature, ymin = "lower", ymax = "upper"), alpha = 0.2)
+p1 = p1 + geom_line(data = res.pdp, aes_string(x = feature, y = "mean"))
+p1 = p1 + geom_line(data = gt.pdp, aes_string(x = feature, y = "mean"), colour = "blue")
+p1
+
+p2 = ggplot() + geom_ribbon(data = res.pdp.sub, aes_string(x = feature, ymin = "lower", ymax = "upper"), alpha = 0.2)
+p2 = p2 + geom_line(data = res.pdp.sub, aes_string(x = feature, y = "mean"))
+p2 = p2 + geom_line(data = gt.pdp.sub, aes_string(x = feature, y = "mean"), colour = "blue")
+p2
+
+grid.arrange(p1, p2, nrow = 1)
+
+
+# Check whether the objective value and the confidence band are correlated
+objs = unlist(lapply(tree[[5]], function(node) node$objective.value))
+out = lapply(tree[[5]], function(node) get_gp_uncertainty(gg, node$subset.idx))
+out = unlist(lapply(out, sum))
+cov(objs, out)
 
 
 
 
 set.seed(123)
 testdata =  data$rlhs_test_data[sample(1:3000, 1000),features]
+
 
 
 # library(foreach)
