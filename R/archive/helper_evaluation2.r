@@ -1,0 +1,378 @@
+
+
+get_ice_curves <- function(model, data, feature, grid.size, mean = FALSE){
+  mymodel = makeS3Obj("mymodel", fun = function() return(model))
+  predict.mymodel = function(object, newdata) {
+    pred = predict(object$fun(), newdata = newdata)
+    pp = getPredictionSE(pred)
+    if(mean == TRUE) pp = getPredictionResponse(pred) 
+    return(pp)
+  }
+  
+  predictor = Predictor$new(model = mymodel, data = data, predict.function = predict.mymodel)
+  effect = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "ice")
+}
+
+
+# define objective
+SS_L2 = function(y, x, requires.x = FALSE, ...) {
+  require(Rfast)
+  ypred = colMeans(as.matrix(y))
+  sum(t((t(y) - ypred)^2))
+  
+}
+
+# Using the area
+SS_area = function(y, x, requires.x = FALSE, ...) {
+  row_means = rowMeans(y) # area of individual ice curves
+  ypred = mean(row_means) # area of pdp
+  sum((row_means - ypred)^2)
+}
+
+
+
+get_eval_measures = function(effect, node, model, pdp.feature, optimum, grid.size, objective.groundtruth = NULL, method = "pdp_var_gp") {
+  
+  data = effect$predictor$data$X[node$subset.idx, ]
+  data = as.data.frame(data)
+  
+  pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, grid.size = grid.size, method = method)
+  pp$lower = pp$mean - 2 * pp$sd
+  pp$upper = pp$mean + 2 * pp$sd
+  
+  pp.gt = marginal_effect(objective.groundtruth, pdp.feature, data, model, grid.size)
+  
+  conf.diff = sum(pp$upper - pp$lower)
+  gt.diff.abs = sum(abs(pp.gt$mean - pp$mean))
+  gt.diff.sd = sd(pp.gt$mean - pp$mean)
+  
+  # values around optimum
+  pp["dist.opt"] = abs(pp[,pdp.feature]-optimum)
+  pp.opt = pp[order(pp$dist.opt),][1,] # adjust number of grid points to evaluate?
+  
+  conf.diff.opt = sum(pp.opt$upper-pp.opt$lower)
+  gt.diff.abs.opt = sum(abs(pp.gt$mean[which(pp.opt[,pdp.feature] %in% pp.gt[,pdp.feature])]-pp.opt$mean))
+  gt.diff.sd.opt = sd(pp.gt$mean[which(pp.opt[,pdp.feature] %in% pp.gt[,pdp.feature])]-pp.opt$mean)
+  
+  return(list("conf.diff" = conf.diff, "gt.diff.abs" = gt.diff.abs, "gt.diff.sd" = gt.diff.sd,
+              "conf.diff.opt" = conf.diff.opt, "gt.diff.abs.opt" = gt.diff.abs.opt, "gt.diff.sd.opt" = gt.diff.sd.opt))
+}
+
+find_optimal_node = function(tree, optimum){
+
+  node = tree[[1]][[1]]
+
+  max_depth = length(tree) - 1
+  depth = 0
+
+  while(node$depth < max_depth) {
+
+    split.feature = node$split.feature
+    split.value = node$split.value
+    
+    if(optimum[split.feature] <= split.value){
+      node = node$children$left.child
+    } else {
+      node = node$children$right.child
+    }
+  }
+
+  # id = c()
+  
+  # for(depth in seq_len(length(tree) - 1)){
+    
+  #   split.feature = node$split.feature
+  #   split.value = node$split.value
+  #   if(optimum[split.feature] <= split.value){
+  #     id = c(id, 1)
+  #   }
+  #   else id = c(id,2)
+  #   node = tree[[depth+1]]
+  #   for(i in id){
+  #     if(i == 1) node = node[1:(0.5*length(node))]
+  #     else node = node[(0.5*length(node)+1):length(node)]
+      
+  #   }
+  #   node = node[[1]]
+    
+  # }
+  
+  return(node)
+}
+
+
+find_split_criteria = function(tree, optimum){
+  node = tree[[1]][[1]]
+  id = c()
+  features = c()
+  values = c()
+  
+  for(depth in seq_len(length(tree) - 1)){
+    
+    
+    
+    split.feature = node$split.feature
+    split.value = node$split.value
+    if(optimum[split.feature] <= split.value){
+      id = c(id, 1)
+    }
+    else id = c(id,2)
+    node = tree[[depth+1]]
+    for(i in id){
+      if(i == 1) node = node[1:(0.5*length(node))]
+      else node = node[(0.5*length(node)+1):length(node)]
+      
+    }
+    node = node[[1]]
+    features = c(features, split.feature)
+    values = c(values, split.value)
+    
+  }
+  
+  
+  return(list("features" = features, "values" = values, "id" = id))
+}
+
+find_optimal_subset = function(testdata, split.criteria){
+  testdata$id = 1:nrow(testdata)
+  for(i in length(split.criteria$features)){
+    if(split.criteria$id[i] == 1){
+      testdata = testdata[which(testdata[,split.criteria$features[i]] <= split.criteria$values[i]),]
+    }
+    else{
+      testdata = testdata[which(testdata[,split.criteria$features[i]] > split.criteria$values[i]),]
+    }
+    
+  }
+  return(testdata)
+}
+
+
+
+
+# mlp separate until surrogate data problem fixed
+get_eval_measures_mlp = function(res.ice, gt.ice, res.opt, gt.opt, idx, pdp.feature, optimum, method = "pdp_var_sd", plot = FALSE, alpha = 0.05) {
+  
+  res.ice = res.ice[which(res.ice$.id %in% idx),]
+
+  # Attention with computation of the sd - this needs to be adapted
+  if (method == "pdp_sd") {
+    res.pdp = setDT(res.ice)[, .(mean = mean(mean), sd = mean(sd)), by = pdp.feature] 
+  } else {
+    res.pdp = setDT(res.ice)[, .(mean = mean(mean), sd = sqrt(mean(sd^2))), by = pdp.feature]     
+  }
+
+  gt.ice = gt.ice[which(gt.ice$.id %in% idx),]
+  # Attention with computation of the sd - this needs to be adapted
+  res.gt = setDT(gt.ice)[, .(mean = mean(mean)), by = pdp.feature] 
+
+  q = qnorm(1 - alpha / 2)
+  res.pdp$lower = res.pdp$mean - q * res.pdp$sd
+  res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
+
+  p = NULL
+
+  if (plot) {
+    p = ggplot(data = res.gt, aes_string(x = pdp.feature, y = "mean")) + geom_line()
+    p = p + geom_ribbon(data = res.pdp, aes_string(x = pdp.feature, ymin = "lower", ymax = "upper"), fill = "blue", alpha = 0.2) + geom_line(data = res.pdp, aes_string(x = pdp.feature, y = "mean"), colour = "blue")
+    p = p + geom_vline(data = optimum, aes_string(xintercept = pdp.feature), colour = "orange", lty = 2)
+  }
+
+  
+  pp = res.pdp
+  pp.gt = res.gt
+
+  neg_loglik = mean(unlist(lapply(seq_row(pp), function(i) {
+      - dnorm(pp.gt[i, ]$mean, mean = pp[i, ]$mean, sd = pp[i, ]$sd, log = TRUE) 
+  })))
+  
+  conf.diff = sum(pp$upper - pp$lower)
+  gt.diff.abs = sum(abs(pp.gt$mean - pp$mean))
+  gt.diff.sd = sd(pp.gt$mean - pp$mean)
+  
+  # values at the optimum
+  # pp_dist_opt = abs(pp[, ..pdp.feature] - as.numeric(optimum[, pdp.feature]))
+  # best_idx = order(pp_dist_opt)[1] # adjust number of grid points to evaluate?
+  # 
+  # pp.opt = pp[best_idx, ] 
+  # pp.gt.opt = pp.gt[best_idx, ]
+  # 
+  # conf.diff.opt = sum(pp.opt$upper - pp.opt$lower)
+  # gt.diff.abs.opt = sum(abs(pp.gt.opt$mean - pp.opt$mean))
+  # gt.diff.sd.opt = sd(pp.gt.opt$mean - pp.opt$mean)
+  
+  conf.diff.opt = sum(res.opt$upper - res.opt$lower)
+  gt.diff.abs.opt = sum(abs(gt.opt$mean - res.opt$mean))
+  gt.diff.sd.opt = sd(gt.opt$mean - res.opt$mean)
+    
+  return(list(df = data.frame("conf.diff" = conf.diff, "gt.diff.abs" = gt.diff.abs, "gt.diff.sd" = gt.diff.sd,
+              "conf.diff.opt" = conf.diff.opt, "gt.diff.abs.opt" = gt.diff.abs.opt, "gt.diff.sd.opt" = gt.diff.sd.opt, neg_loglik = neg_loglik), p = p))
+}
+
+
+compute_trees = function(n.split, models, features, optima, testdata, gtdata) {
+  
+  objectives = c("SS_L2","SS_area")
+
+  reslist = list()
+
+  for (i in seq_along(models)) {
+
+    print(paste("Model number", i))
+
+    model = models[[i]]
+    optimum = optima[i, ]
+
+    results_for_features = lapply(features, function(feature) {
+
+      # Compute all ice curves
+      mymodel = makeS3Obj("mymodel", fun = function() return(model))
+      
+      predict.mymodel = function(object, newdata) {
+        pred = predict(object$fun(), newdata = newdata)
+        pp = getPredictionSE(pred)
+
+        return(pp)
+      }
+      grid = c(seq(min(as.data.frame(testdata)[, feature]), max(as.data.frame(testdata)[, feature]), length.out = grid.size), as.numeric(optimum[,..feature]))
+      predictor = Predictor$new(model = mymodel, data = as.data.frame(testdata)[, model$features], predict.function = predict.mymodel)
+      effect_sd = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.points = grid)
+      
+      predictor = Predictor$new(model = model, data = as.data.frame(testdata)[, model$features])
+      effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.points = grid)
+      
+      # Evaluation at optimum
+      effect_optimum = data.frame(feature = optimum[, feature], "mean" = effect_mean$predict(optimum, extrapolate = TRUE), "sd" = effect_sd$predict(optimum, extrapolate = TRUE))
+      names(effect_optimum)[1] = c(feature)   
+      #effect_optimum = cbind(optimum[, c("method", "iter")], effect_optimum)
+      
+      effect_sd_d = setDT(effect_sd$results)
+      names(effect_sd_d)[2] = "sd"
+      effect_mean_d = setDT(effect_mean$results)
+      names(effect_mean_d)[2] = "mean"
+      for(k in 1:unique(effect_sd_d$.id)){
+        eff_sub = effect_sd_d[effect_sd_d$.id==k,]
+        effect_sd_opt = eff_sub
+      }
+
+      effects_merged = batchtools::ijoin(effect_sd_d, effect_mean_d, by = c(feature, ".type", ".id"))
+
+      sf = c(feature, "mean", "sd", ".id")
+      res.pdp = effects_merged[.type == "pdp", ..sf]
+      res.ice = effects_merged[.type == "ice", ..sf]
+      
+      
+
+      trees = lapply(objectives, function(objective) {
+        compute_tree(effect = effect_sd, testdata = testdata, objective = objective, n.split = n.split) 
+      })
+
+      list(effects = effects_merged, res.pdp = res.pdp, res.ice = res.ice, res.opt = effect_optimum, trees = trees)
+    })
+
+    reslist[[i]] = results_for_features
+  }
+
+  reslist
+}
+
+
+
+get_effects_optimum = function(res.ice, gt.ice, res.opt, gt.opt, node$subset.idx, feature){
+  
+}
+
+evaluate_results = function(reslist, plotpath = NULL, alpha = 0.05, optima) {
+  
+  df = data.frame()
+
+  if (!is.null(plotpath))
+    plot = TRUE
+
+  # Iterate over all models we have 
+  for (i in seq_along(reslist)) {
+
+    resmod = reslist[[i]]
+    optimum = optima[[i]]
+
+    for (feature in names(resmod)) {
+
+      res = reslist[[i]][[feature]]
+
+      effects_merged = res$effects
+
+      sf = c(feature, "mean", "sd", ".id")
+      res.pdp = effects_merged[.type == "pdp", ..sf]
+      res.ice = effects_merged[.type == "ice", ..sf]
+      res.opt = res$res.opt
+
+      q = qnorm(1 - alpha / 2)
+      res.pdp$lower = res.pdp$mean - q * res.pdp$sd
+      res.pdp$upper = res.pdp$mean + q * res.pdp$sd 
+      grid = res.pdp[,feature]
+
+      ymax = max(res.pdp$upper) + 0.02
+      ymin = min(res.pdp$lower) - 0.02
+
+      # Get the ground-truth
+      gt.pdp = res$gt.pdp
+      gt.ice = res$gt.ice
+      gt.opt = res$gt.opt
+
+      for (objective in names(res$trees)) {
+
+        tree = res$trees[[objective]]
+
+        source_node = tree[[1]][[1]]
+        eval.source_node = get_eval_measures_mlp(res.ice, gt.ice, res.opt, gt.opt, source_node$subset.idx, feature, optimum[feature], plot = plot, alpha = alpha)
+        
+        if (plot) {
+          plist = list()
+          plist[[1]] = eval.source_node$p + ylim(c(ymin, ymax))
+        }
+
+        names(eval.source_node$df) = paste0("source.", names(eval.source_node$df))
+
+        for (depth in seq(2, length(tree))) {
+          
+          subtree = tree[seq_len(depth)]
+          node = find_optimal_node(subtree, optimum)
+          subset.opt = get_effects_optimum(res.ice, gt.ice, res.opt, gt.opt, node$subset.idx, feature)
+          eval.opt = get_eval_measures_mlp(res.ice, gt.ice, node$subset.idx, feature, optimum[feature], plot = plot)
+
+          if (!is.null(plotpath)) {
+            plist[[depth]] = eval.opt$p + ylim(c(ymin, ymax))
+          }
+
+          values = cbind(model = i, objective = objective, feature = feature, depth = depth, depth.actual = node$depth + 1, eval.opt$df, eval.source_node$df)
+
+          if (is.null(df)) {
+            df = values
+          } else {
+            df = rbind(df, values)
+          }
+        }
+
+        if(!exists(file.path(plotpath, "individual_pdps")))
+          dir.create(file.path(plotpath, "individual_pdps"))
+
+        if(!exists(file.path(plotpath, "individual_pdps", objective)))
+          dir.create(file.path(plotpath, "individual_pdps", objective))
+
+        if(!exists(file.path(plotpath, "individual_pdps", objective, i)))
+          dir.create(file.path(plotpath, "individual_pdps", objective, i))
+
+        ggsave(file.path(plotpath, "individual_pdps", objective, i, paste0(feature, ".png")), do.call(grid.arrange, c(plist[c(1, length(plist) - 1)], nrow = 1)), width = 8, height = 4)
+      }
+    }
+  }
+
+  df$conf.rel = (df$source.conf.diff - df$conf.diff) / df$source.conf.diff
+  df$gt.rel = (df$source.gt.diff.abs - df$gt.diff.abs) / df$source.gt.diff.abs
+  df$conf.rel.opt = (df$source.conf.diff.opt - df$conf.diff.opt) / df$source.conf.diff.opt
+  df$gt.rel.opt = (df$source.gt.diff.abs.opt - df$gt.diff.abs.opt) / df$source.gt.diff.abs.opt
+  df$neg_loglik.rel = (df$source.neg_loglik - df$neg_loglik) / df$source.neg_loglik
+
+  return(df)
+}
+
