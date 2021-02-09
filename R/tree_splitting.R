@@ -1,5 +1,15 @@
-library(R6)
+#' @title Performs a single tree based on ICE curves
+#'
+#' @description
+#' Uses functions in customtrees.r for splitting effect curves according to defined objective.
+#'
+#' @param effect effect object of IML method FeatureEffect$new()
+#' @param testdata dataset to use for splitting (data.frame with features in columns)
+#' @param objective character string with objective function to use (so far: 'SS_L1', 'SS_L2', 'SS_area', 'SS_sd' and 'var_gp' are defined)
+#' @param n.split number of splits to be performed
 
+
+# Definition of Class Node
 Node <- R6Class("Node", list(
     id = NULL,
     
@@ -90,82 +100,52 @@ Node <- R6Class("Node", list(
 
 
 
-compute_tree = function(effect_sd, testdata, objective, n.split) {
+# compute single tree based on Class 'Node' 
+compute_tree = function(effect, testdata, objective, n.split) {
 
   if (objective == "SS_L1") {
 
-    # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
-
       require(Rfast)
-
       ypred = colMeans(as.matrix(y))
       min(t((t(y) - ypred)^2))    
     } 
 
-    input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
+    input.data = compute_data_for_ice_splitting(effect, testdata = testdata)
   } 
 
   else if (objective == "SS_L2") {
 
-    # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
-      
       ypred = colMeans(as.matrix(y))
       sum(t((t(y) - ypred)^2))
     } 
     
-    input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
+    input.data = compute_data_for_ice_splitting(effect, testdata = testdata)
   }
   
   else if (objective == "SS_area") {
-    
-    # define objective
+
     split.objective = function(y, x, requires.x = FALSE, ...) {
-      #y = y*100
       row_means = rowMeans(y) # area of individual ice curves
       ypred = mean(row_means) # area of pdp
       sum((row_means - ypred)^2)
     } 
     
-    input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
+    input.data = compute_data_for_ice_splitting(effect, testdata = testdata)
 
   }
   
-  else if (objective == "SS_area_med") {
-
-    # define objective
-    split.objective = function(y, x, requires.x = FALSE, ...) {
-      row_means = rowMeans(y) # area of individual ice curves
-      ypred = median(row_means) # area of pdp
-      sum((row_means - ypred)^2)
-    } 
-    
-    input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
-  }
-  
-  else if (objective == "SS_area_quant") {
-
-    # define objective
-    split.objective = function(y, x, requires.x = FALSE, ...) {
-      row_means = rowMeans(y) # area of individual ice curves
-      ypred = quantile(row_means, 0.2) # area of pdp
-      sum(abs(row_means - ypred))
-    } 
-    
-    input.data = compute_data_for_ice_splitting(effect_sd, testdata = testdata)
-  }
   
   else if (objective == "SS_sd") {
 
-    pdp.feat = effect_sd$feature.name
+    pdp.feat = effect$feature.name
     split.feats = setdiff(names(testdata), pdp.feat)
 
     # The ys are the predictions (in this case, the standard deviation)
     X = setDT(testdata)
-    Y = setDT(effect_sd$predictor$predict(X))
+    Y = setDT(effect$predictor$predict(X))
     
-    # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
       y = y$pred
       sum((y - mean(y))^2)
@@ -177,14 +157,13 @@ compute_tree = function(effect_sd, testdata, objective, n.split) {
 
   else if (objective == "var_gp") {
 
-    pdp.feat = effect_sd$feature.name
+    pdp.feat = effect$feature.name
     split.feats = setdiff(names(testdata), pdp.feat)
 
     # The ys are the predictions (in this case, the standard deviation)
     X = setDT(testdata)
     Y = data.table(.id = seq_row(testdata))
 
-    # define objective
     split.objective = function(y, x, requires.x = FALSE, ...) {
 
       y = y$.id
@@ -230,54 +209,39 @@ compute_tree = function(effect_sd, testdata, objective, n.split) {
 }
 
 
-get_size_of_tree = function(tree) {
-  lapply(tree, function(nodes) unlist(lapply(nodes, function(node) length(node$subset.idx))))
+
+
+compute_data_for_ice_splitting = function(effect, testdata) {
+  
+  # effect: effect object of IML method FeatureEffect
+  
+  # Output: A data.frame where each row corresponds to a ice curve 
+  
+  df = setDT(testdata)
+  df$.id = seq_row(df)
+  
+  ice.feat = effect$feature.name
+  features = names(testdata)
+  
+  # Features we consider splitting 
+  split.feats = setdiff(features, ice.feat)
+  df.sub = df[, c(".id", split.feats), with = FALSE]  
+  
+  effectdata = effect$results
+  effectdata = effectdata[effectdata$.type=="ice",]
+  
+  Y = tidyr::spread(effectdata, ice.feat, .value)
+  Y = setDT(Y)[, setdiff(colnames(Y), c(".type", ".id")), with = FALSE]
+  
+  X = df[, split.feats, with = FALSE]
+  
+  return(list(X = X, Y = Y))
 }
 
-get_objective_values = function(tree, depth = NULL) {
-  if (is.null(depth))
-    lapply(tree, function(nodes) unlist(lapply(nodes, function(node) node$objective.value)))
-  else 
-    unlist(lapply(tree[[depth]], function(node) node$objective.value))
-}
 
-order_nodes_by_objective = function(tree, depth) {
-  order(get_objective_values(tree, depth = depth))
-}
 
-compute_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
-
-    data = testdata[node$subset.idx, ]
-    data = as.data.frame(data)
-    pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, grid.size = grid.size, method = method)
-    
-    q = qnorm(1 - alpha / 2)
-    pp$lower = pp$mean - q * pp$sd
-    pp$upper = pp$mean + q * pp$sd 
-
-    pp.gt = NULL
-    if (!is.null(objective.gt))
-      pp.gt = marginal_effect_mlp(obj = objective.gt, data = data, feature = pdp.feature, model =  model, grid.size = grid.size)
-
-    return(list(pdp_data = pp, pdp_groundtruth_data = pp.gt))
-}
-
-compute_pdp_for_node_with_data = function(node, pdp.ice, pdp.gt = NULL, pdp.feature, grid.size, method = "pdp_var_gp", alpha = 0.05) {
-
-    data = testdata[node$subset.idx, ]
-    data = as.data.frame(data)
-    pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, grid.size = grid.size, method = method)
-    
-    q = qnorm(1 - alpha / 2)
-    pp$lower = pp$mean - q * pp$sd
-    pp$upper = pp$mean + q * pp$sd 
-
-    pp.gt = NULL
-    if (!is.null(objective.gt))
-      pp.gt = marginal_effect_mlp(obj = objective.gt, data = data, feature = pdp.feature, model =  model, grid.size = grid.size)
-
-    return(list(pdp_data = pp, pdp_groundtruth_data = pp.gt))
-}
+################################################################################
+# move to evaulation?
 
 
 compute_trees = function(n.split, models, features, testdata, grid.size, objectives) {
@@ -338,228 +302,6 @@ compute_trees = function(n.split, models, features, testdata, grid.size, objecti
 
 
 
-plot_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, objective.gt = NULL, method = "pdp_var_gp", alpha = 0.05) {
- 
-    data = compute_pdp_for_node(node, testdata, model, pdp.feature, grid.size, objective.gt, method, alpha = alpha)
-
-    pp = data$pdp_data
-    pp.gt = data$pdp_groundtruth_data
-
-    p = ggplot() + theme_bw()
-
-    if (!is.null(pp.gt)) {
-      
-      p = p + geom_line(data = pp.gt, aes_string(x = pdp.feature, y = "mean"))                        
-
-    }
-
-    p = p + geom_ribbon(data = pp, aes_string(x = pdp.feature, ymin = "lower", ymax = "upper"), alpha = 0.2)
-    p = p + geom_line(data = pp, aes_string(x = pdp.feature, y = "mean"), colour = "blue") 
-    p = p + ggtitle(paste0("Obj. value: ", round(node$objective.value), "; Size = ", length(node$subset.idx)))
-
-  return(p)
-}
-
-plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, method = "pdp_var_gp", alpha = 0.05, grid.size, best_candidate = NULL) {
-
-    # tree object
-    # df:  the tree was used to compute the pdps
-    # model: Model that we want to visualize
-    # obj: ground-truth objective if available
-    # depth: at which depth do we want to "draw" the PDP? 
-    
-    depth = length(tree)
-    
-    # First, build a tree in partykit
-    # Create partysplit objects for all splits that are performed
-    splits = lapply(seq_len(depth - 1), function(i) {
-      lapply(seq_len(length(tree[[i]])), function(j) {
-          node = tree[[i]][[j]]
-          partysplit(which(node$split.feature == ps_ids), breaks = round(node$split.value, 4))
-        })
-    })
-    
-    d = depth - 1
-    
-    ids = 2^(d):(2^(d + 1) - 1)
-
-    # Create the leave nodes as partynodes (placeholder)
-    nodes = lapply(ids, function(i) {
-        partynode(id = i)
-    })
-
-    if (depth == 2) {
-        d = 0
-        ids = 2^(d):(2^(d + 1) - 1)
-
-        # transfer all into nodes and use the correct children
-        nodes = lapply(seq_along(ids), function(i) {
-            partynode(i, split = splits[[d + 1]][[i]], kids = 
-                nodes[(2 * i - 1):(2 * i)]
-            )
-        })
-    } else {
-      # Now, recursively build the tree
-      for (d in seq(depth - 2, 0)) {
-          ids = 2^(d):(2^(d + 1) - 1)
-
-          # transfer all into nodes and use the correct children
-          nodes = lapply(seq_along(ids), function(i) {
-              partynode(i, split = splits[[d + 1]][[i]], kids = 
-                  nodes[(2 * i - 1):(2 * i)]
-              )
-          })
-      }
-    }
-
-    ntest = nrow(df)
-
-    df_orig = df
-
-    if (!is.null(best_candidate))
-      df = rbind(df, best_candidate[, names(df)]) 
-
-    # Modify the test data (this is just a dirty workaround)
-    df$sd = NA
-    df$mean = NA
-    df$xs = NA
-    df$lower = NA
-    df$upper = NA
-    df$gt = NA
-    df$best = NA
-    df$subset_idx = seq_len(nrow(df))
-
-    py = party(node = nodes[[1]], data = df)
-    
-    # Create a ggparty object
-    ggpobj = ggparty(py)
-    
-    stack = tree[[1]]
-    i = 1
-
-    # Now create the data for the pdps 
-
-    while (length(stack) > 0) {
-
-      # check the first element of the stack      
-      node = stack[[1]]
-      
-      plotdata = compute_pdp_for_node(node = node, 
-        testdata = df_orig,
-        model = model, 
-        pdp.feature = pdp.feature, 
-        grid.size = grid.size,
-        objective.gt = obj, 
-        method = method, 
-        alpha = alpha)
-
-      pp = plotdata$pdp_data
-      pp.gt = plotdata$pdp_groundtruth_data
-
-      tl = length(ggpobj$data[, paste0("nodedata_", pdp.feature)][[i]])
-
-      if (tl > nrow(pp)) {
-        ggpobj$data$nodedata_xs[[i]] = c(pp[ , pdp.feature], rep(NA, tl - nrow(pp)))
-        ggpobj$data$nodedata_mean[[i]] = c(pp[ , "mean"], rep(NA, tl - nrow(pp)))
-        ggpobj$data$nodedata_lower[[i]] = c(pp[ , "lower"], rep(NA, tl - nrow(pp)))
-        ggpobj$data$nodedata_upper[[i]] = c(pp[ , "upper"], rep(NA, tl - nrow(pp)))
-
-        if (!is.null(obj))
-            ggpobj$data$nodedata_gt[[i]] = c(pp.gt$mean, rep(NA, tl - nrow(pp)))
-      
-        if (!is.null(best_candidate) && (ntest + 1) %in% ggpobj$data$nodedata_subset_idx[[i]]) {
-            ggpobj$data$nodedata_best[[i]][1] = best_candidate[, pdp.feature][1]            
-        }
-
-      }
-
-      # remove it from the stack
-      stack[[1]] = NULL
-
-      # extend the stack
-      stack = c(node$children$left.child, node$children$right.child, stack)
-
-      i = i + 1
-    }
-
-    p = ggpobj +
-      geom_edge() +
-      geom_edge_label() +
-      geom_node_splitvar() 
-
-    if (!is.null(best_candidate) && !is.null(obj)) {
-
-    p = p + geom_node_plot(gglist = list(
-                                   geom_ribbon(aes(x = xs, ymin = lower, ymax = upper), alpha = 0.2), 
-                                   geom_line(aes(x = xs, y = mean), colour = "blue"), 
-                                   geom_line(aes(x = xs, y = gt)), 
-                                   geom_vline(aes(xintercept = best), colour = "orange", lty = 2)
-                                  )
-                    )
-    } 
-
-    if (is.null(best_candidate) && !is.null(obj) ) {
-
-      p = p + geom_node_plot(gglist = list(
-                                     geom_ribbon(aes(x = xs, ymin = lower, ymax = upper), alpha = 0.2), 
-                                     geom_line(aes(x = xs, y = mean), colour = "blue"), 
-                                     geom_line(aes(x = xs, y = gt))
-                                    )
-                      )
-      } 
-
-
-    if (!is.null(best_candidate) && is.null(obj) ) {
-
-      p = p + geom_node_plot(gglist = list(
-                                     geom_ribbon(aes(x = xs, ymin = lower, ymax = upper), alpha = 0.2), 
-                                     geom_line(aes(x = xs, y = mean), colour = "blue"), 
-                                      geom_vline(aes(xintercept = best), colour = "orange", lty = 2)
-                                    )
-                      )
-      } 
-
-
-     if (is.null(best_candidate) && is.null(obj) ) {
-
-      p = p + geom_node_plot(gglist = list(
-                                     geom_ribbon(aes(x = xs, ymin = lower, ymax = upper), alpha = 0.2), 
-                                     geom_line(aes(x = xs, y = mean), colour = "blue")
-                                    )
-                      )
-      }       
-
-    return(p)
-}
-
-
-
-compute_data_for_ice_splitting = function(effect, testdata) {
-  
-  # effect:     effect objected outputted by iml 
-
-  # Output: A data.frame that where each row corresponds to a ice curve 
-
-  df = setDT(testdata)
-  df$.id = seq_row(df)
-  
-  ice.feat = effect$feature.name
-  features = names(testdata)
-
-  # Features we consider splitting 
-  split.feats = setdiff(features, ice.feat)
-  df.sub = df[, c(".id", split.feats), with = FALSE]  
-
-  effectdata = effect$results
-  effectdata = effectdata[effectdata$.type=="ice",]
-  
-  Y = tidyr::spread(effectdata, ice.feat, .value)
-  Y = setDT(Y)[, setdiff(colnames(Y), c(".type", ".id")), with = FALSE]
-  
-  X = df[, split.feats, with = FALSE]
-
-  return(list(X = X, Y = Y))
-}
 
 
 
