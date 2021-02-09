@@ -1,5 +1,6 @@
 # Explaining Hyperparameter Optimization via PDPs
 
+![Alt text](docs/images/tree_example.png?raw=true "Title")
 
 
 This repository gives access to an implementation of the methods presented in the paper submission "Explaining Hyperparameter Optimization via PDPs", as well as all code that was used for the experimental analysis. 
