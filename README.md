@@ -4,7 +4,15 @@ This repository gives access to an implementation of the methods presented in th
 
 This repository is structured as follows: 
 
-* `R/`: Implementation of all methods proposed in the submission
+```
+    ├── renv/                   # renv configuration files to enable a reproducible setup 
+    ├── R/                      # Implementation of all methods 
+    ├── experiments/            # Source code for experimental analysis (section 6)
+    │   ├── synthetic           # Synthetic function (section 6.1)
+    │   ├── mlp                 # Synthetic function (section 6.1)
+    ├── analysis/               # Analysis scripts used to create figures and tables in the paper
+    ├── LICENSE
+    └── README.md               # Introduction to this repository and usage of the methods in this paper
 
 +-- `renv/`: `renv` directory enabling a reproducible setup
 +-- `R/`: Implementation of all methods
@@ -12,7 +20,7 @@ This repository is structured as follows:
 |   +-- `synthetic`: Experimental analysis shown in section 6.1
 |   +-- `mlp`: Experimental analysis shown in section 6.2
 +-- `analysis/`: Notebooks to create figures and tables in the paper
-
+```
 
 ## Reproducible Setup 
 
