@@ -80,4 +80,4 @@ plot_pdp_with_se(me)
 ## Reproduce Experiments 
 
 
-The steps necessary to reproduce the experiments are described [here](benchmarks/README.md).
+The steps necessary to reproduce the experiments are described [here](benchmarks/README.Rmd).
