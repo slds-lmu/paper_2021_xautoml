@@ -1,0 +1,62 @@
+---
+output: github_document
+---
+
+# Reproduce Experiments 
+
+To perform the experiments on a cluster, we used the package `bachtools`. The respective scripts are based on a submission to a Linux cluster with [Slurm](https://slurm.schedmd.com/documentation.html) as workload manager. 
+
+Computing Infrastructure  | Linux Cluster |
+--- | --- | 
+Architecture | 28-way Haswell-EP nodes
+Cores per Node | 1
+Memory limit (per core) | 2.2 GB  
+
+
+## Experiments on a Synthetic Function (Section 6.1)
+
+To reproduce the experiments on a synthetic function, you simply run a couple of scripts. 
+
+1. Create an experimental registry, add experiments and problem via sourcing the `generate_data.R`. 
+
+```{r}
+source("benchmarks/synthetic/generate_data.R")
+```
+
+The above script create an experimental registry in `regs/synthetic_tree_splitting`. 
+
+The core part, which is the actual definition of the experiment is in the function `perform_tree_splitting_synthetic()` in the file `benchmarks/synthetic/config.R`.
+
+2. Submit all your experiments 
+
+```{r}
+reg = loadRegistry("regs/synthetic_tree_splitting", writeable = TRUE)
+
+# Overview table over experiments to be run
+tab = summarizeExperiments(
+  by = c("job.id", "algorithm", "problem", "lambda", "objective", "n.splits"))
+
+# Submit all experiments to your local system  
+submitJobs(tab)
+
+# Alternatively, submit them to the linux cluster with respective resources
+# source("benchmarks/resources.R")
+submitJobs(tab, resources = resources.serial.default)
+```
+
+3. Reduce the results and store them in a compact format
+
+Running the function `reduce_results_synthetic()` will store all results, splitted w.r.t. the problem and a specified directory. 
+
+
+```{r}
+reg = loadRegistry("regs/synthetic_tree_splitting")
+
+# Check status of the experiments 
+getStatus()
+
+source("benchmarks/synthetic/reduce.R")
+reduce_results_synthetic(reg, savedir = "data/runs/synthetic")
+ ```
+
+
