@@ -28,7 +28,7 @@ effects.surr$.value = 1-(effects.surr$.value/100)
 if (feature %in% c("batch_size", "max_units")) {
   effects.surr$grid = log(effects.surr[,feature], 2)
 }
-else effects.surr$grid = effects.surr[,feature]
+# else effects.surr$grid = effects.surr[,feature]
 
 pdp_sd = marginal_effect_sd_over_mean(model.list.mbo[[l]][[i]], feature, data.test.sub, "pdp_sd")
 
