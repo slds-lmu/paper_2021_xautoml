@@ -7,12 +7,12 @@ This repository is structured as follows:
 ```
     ├── renv/                   # renv configuration files to enable a reproducible setup 
     ├── R/                      # Implementation of methods 
-    ├── experiments/            # Source code for experimental analysis (section 6)
+    ├── experiments/            # Code for experimental analysis (section 6)
     │   ├── synthetic           # Synthetic benchmark (section 6.1)
     │   ├── mlp                 # DNN surrogate benchmark (section 6.2)
-    ├── analysis/               # Analysis scripts used to create figures and tables in the paper
+    ├── analysis/               # Scripts used to create figures and tables in the paper
     ├── LICENSE
-    └── README.md               # Introduction to this repository and usage of the methods in this paper
+    └── README.md               
 ```    
 
 ## Reproducible Setup 
