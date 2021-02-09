@@ -31,8 +31,6 @@ the project dependencies can be installed via
 renv::restore()
 ```
 
-All our methods are build on the basis of the `mlr` package. 
-
 ## Quick Start  
 
 First, assume we have a surrogate model that we want to analyze. 
