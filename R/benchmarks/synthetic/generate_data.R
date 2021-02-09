@@ -73,7 +73,7 @@ tab = summarizeExperiments(
 tosubmit = tab[n.splits == 5, ] # [problem %in% probs, ]
 tosubmit = ijoin(tosubmit, findNotDone())
 tosubmit$chunk = batchtools::chunk(tosubmit$job.id, chunk.size = 50)
-submitJobs(tosubmit[chunk != 1, ], resources = resources.serial)
+submitJobs(tosubmit, resources = resources.serial)
 
 
 # Reduce the ones that are already through
@@ -117,14 +117,18 @@ tab = summarizeExperiments(
 
 toreduce = ijoin(tab, findDone())
 
-toreduce = toreduce[objective %in% c("SS_L2", "SS_sd"), ]
+# toreduce = toreduce[objective %in% c("SS_L2", "SS_sd"), ]
 toreduce = toreduce[n.splits == 5, ]
 
 for (obj in unique(toreduce$objective)) {
 
+  print(obj)
+
   for (prob in c("StyblinskiTang2D", "StyblinskiTang3D", "StyblinskiTang5D", "StyblinskiTang8D")) {
 
-    savepath = file.path("data", "runs", "synthetic", prob)
+    print(prob)
+
+    savepath = file.path("data", "runs", "synthetic_enhanced_eval", prob)
 
     if (!dir.exists(savepath))
       dir.create(savepath)
@@ -132,22 +136,13 @@ for (obj in unique(toreduce$objective)) {
     tored = toreduce[problem == prob & objective == obj, ]
 
     res = reduceResultsDataTable(tored, function(x) {
-      opt.path = as.data.frame(x$mbo_run$opt.path)
-      ps = x$mbo_run$opt.path$par.set
+      opt.path = x$opt.path
+      dim = which(names(opt.path) == "y") - 1
+      ps = makeParamSet(makeNumericVectorParam(id = "x", len = dim, lower = - 5, upper = 5))      
       ids = getParamIds(ps, repeated = TRUE, with.nr = TRUE)
-      df1 = as.data.frame(x$mbo_run$opt.path)[, ids]
+      df1 = as.data.frame(opt.path)[, ids]
       df2 = as.data.frame(generateRandomDesign(n = nrow(df1), ps))
-      x$mmd2_full = mmd2(df1, df2)
-
-      df1 = as.data.frame(x$mbo_run$opt.path)[1:50, ids]
-      df2 = as.data.frame(generateRandomDesign(n = nrow(df1), ps))
-      x$mmd2_50 = mmd2(df1, df2)
-
-      x$opt.path = opt.path
-      models = x$mbo_run$models 
-
-      x$models = x$mbo_run$models[c(43, length(models))]
-      x$mbo_run = NULL
+      x$mmd2 = mmd2(df1, df2)
 
       return(x)
     })

@@ -10,7 +10,7 @@ marginal_effect = function(obj, feature, data, model, all.features, grid.size, m
     effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = method)
 
     res = effects$results
-    names(res) = c(feature, "mean")
+    names(res)[1:2] = c(feature, "mean")
                         
     return(res)
 }
@@ -136,7 +136,7 @@ marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method,
 	        return(df)
 	    })
 
-    	res = do.call(rbind, res)
+    	res.pdp = do.call(rbind, res)
     }
 
     if (method == "thompson") {
@@ -162,7 +162,7 @@ marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method,
 	    res = pdp_over_samples[, .(mean = mean(v), sd = sd(v)), by = feature]
     }
 
-    return(list("pdp" = res.pdp, "ice" = res.ice))
+    return(list("pdp" = res.pdp, "ice" = res.ice, res = res))
 }
 
 conditional_mean_sd = function(model, feature, data, method) {

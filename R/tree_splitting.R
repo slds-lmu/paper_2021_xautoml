@@ -250,20 +250,34 @@ compute_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, o
     data = testdata[node$subset.idx, ]
     data = as.data.frame(data)
     pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, grid.size = grid.size, method = method)
-    pp = pp$pdp
     
     q = qnorm(1 - alpha / 2)
     pp$lower = pp$mean - q * pp$sd
     pp$upper = pp$mean + q * pp$sd 
 
-
     pp.gt = NULL
     if (!is.null(objective.gt))
-      pp.gt = marginal_effect(obj = objective.gt, feature = pdp.feature, data = data,model =  model, grid.size = grid.size, all.features = model$features, method = "pdp")
+      pp.gt = marginal_effect_mlp(obj = objective.gt, data = data, feature = pdp.feature, model =  model, grid.size = grid.size)
 
     return(list(pdp_data = pp, pdp_groundtruth_data = pp.gt))
 }
 
+compute_pdp_for_node_with_data = function(node, pdp.ice, pdp.gt = NULL, pdp.feature, grid.size, method = "pdp_var_gp", alpha = 0.05) {
+
+    data = testdata[node$subset.idx, ]
+    data = as.data.frame(data)
+    pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, grid.size = grid.size, method = method)
+    
+    q = qnorm(1 - alpha / 2)
+    pp$lower = pp$mean - q * pp$sd
+    pp$upper = pp$mean + q * pp$sd 
+
+    pp.gt = NULL
+    if (!is.null(objective.gt))
+      pp.gt = marginal_effect_mlp(obj = objective.gt, data = data, feature = pdp.feature, model =  model, grid.size = grid.size)
+
+    return(list(pdp_data = pp, pdp_groundtruth_data = pp.gt))
+}
 
 
 compute_trees = function(n.split, models, features, testdata, grid.size, objectives) {
@@ -374,8 +388,8 @@ plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, metho
         partynode(id = i)
     })
 
-    # Now, recursively build the tree
-    for (d in seq(depth - 2, 0)) {
+    if (depth == 2) {
+        d = 0
         ids = 2^(d):(2^(d + 1) - 1)
 
         # transfer all into nodes and use the correct children
@@ -384,6 +398,18 @@ plot_tree_pdps = function(tree, df, model, pdp.feature, obj = NULL, depth, metho
                 nodes[(2 * i - 1):(2 * i)]
             )
         })
+    } else {
+      # Now, recursively build the tree
+      for (d in seq(depth - 2, 0)) {
+          ids = 2^(d):(2^(d + 1) - 1)
+
+          # transfer all into nodes and use the correct children
+          nodes = lapply(seq_along(ids), function(i) {
+              partynode(i, split = splits[[d + 1]][[i]], kids = 
+                  nodes[(2 * i - 1):(2 * i)]
+              )
+          })
+      }
     }
 
     ntest = nrow(df)
@@ -584,3 +610,5 @@ compute_trees_pdp_cor = function(n.split, models, features, testdata, grid.size,
 
   reslist
 }
+
+

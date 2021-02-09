@@ -12,7 +12,7 @@ library(ggplot2)
 library(gridExtra)
 
 source("R/synthetic_helper.r")
-source("R/pdp_helpers.R")
+source("R/pdp_helpers2.R")
 source("R/tree_splitting.R")
 source("R/helper_evaulation.R")
 source("R/benchmarks/synthetic/mbo_helpers.R")
@@ -49,7 +49,7 @@ models = extract_models(runs)
 names(models) = types
 
 
-model_for_interpretation = "MBO_0.1"
+model_for_interpretation = "MBO_2"
 model = models[[model_for_interpretation]]
 feat = "x1"
 
@@ -69,9 +69,17 @@ effect = FeatureEffect$new(predictor = predictor, feature = feat, method = "ice"
 
 
 # Compute tree
-tree = compute_tree(effect = effect, testdata = df, objective = "SS_L2", n.split = 2)
+tree = compute_tree(effect = effect, testdata = df, objective = "SS_L1", n.split = 1)
 
 plot_tree_pdps(tree, df = testdata, model = model, pdp.feature = feat, depth = 2, grid.size = 20)
+
+
+
+plot_pdp_for_node(node = tree[[1]][[1]], model = model, grid.size = 20, method = "pdp_var_gp", 
+  testdata = testdata, pdp.feature = feat, objective.gt = obj, alpha = 0.05)
+
+
+
 
 
 
