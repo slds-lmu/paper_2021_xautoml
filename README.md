@@ -13,14 +13,7 @@ This repository is structured as follows:
     ├── analysis/               # Analysis scripts used to create figures and tables in the paper
     ├── LICENSE
     └── README.md               # Introduction to this repository and usage of the methods in this paper
-
-+-- `renv/`: `renv` directory enabling a reproducible setup
-+-- `R/`: Implementation of all methods
-+-- `experiments/`: Source code for experimental analysis (section 6)
-|   +-- `synthetic`: Experimental analysis shown in section 6.1
-|   +-- `mlp`: Experimental analysis shown in section 6.2
-+-- `analysis/`: Notebooks to create figures and tables in the paper
-```
+```    
 
 ## Reproducible Setup 
 
