@@ -1,3 +1,4 @@
+library(kernlab)
 
 # do we need this one?
 get_eval_measures = function(effect, node, model, pdp.feature, optimum, grid.size, objective.groundtruth = NULL, method = "pdp_var_gp") {
@@ -198,6 +199,49 @@ evaluate_results = function(reslist, optima, gtdata, testdata, models = NULL) {
   return(df)
 }
 
+compute_sampling_bias = function(mbo.result) {
+        
+        opt.path = as.data.frame(mbo.result$opt.path)
+        dim = which(names(opt.path) == "y") - 1
+        ps = makeParamSet(makeNumericVectorParam(id = "x", len = dim, lower = - 5, upper = 5))      
+        ids = getParamIds(ps, repeated = TRUE, with.nr = TRUE)
+        df1 = as.data.frame(opt.path)[, ids]
+        df2 = as.data.frame(generateRandomDesign(n = nrow(df1), ps))
+        
+        mmd2(df1, df2)
+}
+
+
+cross.kernel = function(d1, d2 = NULL, sigma) {
+  checkmate::assert_data_frame(d1, any.missing = FALSE)
+  checkmate::assert_data_frame(d2, null.ok = TRUE, ncols = ncol(d1), any.missing = FALSE)
+  checkmate::assert_number(sigma, lower = 0)
+  mradial = kernlab::rbfdot(sigma = sigma)
+  mm = kernlab::kernelMatrix(mradial, as.matrix(d1), as.matrix(d2))
+  mean(mm)
+}
+
+
+get_median_dist = function(d){
+  checkmate::assert_data_frame(d)
+  dists = dist(d, diag = FALSE, upper = FALSE, method = "euclidean")
+  median(dists)
+}
+
+mmd2 = function(d1, d2, sigma = NULL) {
+  checkmate::assert_data_frame(d1, any.missing = FALSE)
+  checkmate::assert_data_frame(d2, null.ok = TRUE, ncols = ncol(d1), any.missing = FALSE)
+  checkmate::assert_number(sigma, lower = 0, null.ok = TRUE)
+  d1 = data.frame(model.matrix(~ . -1, data = d1))
+  d2 = data.frame(model.matrix(~ . -1, data = d2))
+  if(is.null(sigma)) {
+    sigma = get_median_dist(rbind(d1, d2))
+    # Confusingly, the sigma in rbfdot is acutally the gamma param
+    sigma = 1/(2 * sigma^2)
+  }
+  cross.kernel(d1, d1, sigma = sigma) - 2 * cross.kernel(d1, d2, sigma = sigma) + cross.kernel(d2, d2, sigma = sigma)
+}
+
 
 
 get_gp_uncertainty = function(gg, idx, returnC = FALSE) {
@@ -235,48 +279,33 @@ get_gp_uncertainty = function(gg, idx, returnC = FALSE) {
 }
 
 
-# TODO: MMD2 in evaluation script 
 
-library(kernlab)
-
-cross.kernel = function(d1, d2 = NULL, sigma) {
-  checkmate::assert_data_frame(d1, any.missing = FALSE)
-  checkmate::assert_data_frame(d2, null.ok = TRUE, ncols = ncol(d1), any.missing = FALSE)
-  checkmate::assert_number(sigma, lower = 0)
-  mradial = kernlab::rbfdot(sigma = sigma)
-  mm = kernlab::kernelMatrix(mradial, as.matrix(d1), as.matrix(d2))
-  mean(mm)
-}
-
-
-get_median_dist = function(d){
-  checkmate::assert_data_frame(d)
-  dists = dist(d, diag = FALSE, upper = FALSE, method = "euclidean")
-  median(dists)
-}
-
-mmd2 = function(d1, d2, sigma = NULL) {
-  checkmate::assert_data_frame(d1, any.missing = FALSE)
-  checkmate::assert_data_frame(d2, null.ok = TRUE, ncols = ncol(d1), any.missing = FALSE)
-  checkmate::assert_number(sigma, lower = 0, null.ok = TRUE)
-  d1 = data.frame(model.matrix(~ . -1, data = d1))
-  d2 = data.frame(model.matrix(~ . -1, data = d2))
-  if(is.null(sigma)) {
-    sigma = get_median_dist(rbind(d1, d2))
-    # Confusingly, the sigma in rbfdot is acutally the gamma param
-    sigma = 1/(2 * sigma^2)
+# determine optimal node of last split of tree
+find_optimal_node = function(tree, optimum){
+  # tree:     return value of compute_tree function
+  # optimum:  named vector with values of best configuration found during training
+  
+  # output:   node of final split containing optimum
+  
+  node = tree[[1]][[1]]
+  
+  max_depth = length(tree) 
+  
+  while(node$depth < max_depth) {
+    
+    split.feature = node$split.feature
+    split.value = node$split.value
+    
+    if (!is.null(split.value) & !is.null(split.value) & !is.null(optimum[split.feature])) {
+      if(optimum[split.feature] <= split.value){
+        node = node$children$left.child
+      } else {
+        node = node$children$right.child
+      }
+    } else {
+      break
+    }
   }
-  cross.kernel(d1, d1, sigma = sigma) - 2 * cross.kernel(d1, d2, sigma = sigma) + cross.kernel(d2, d2, sigma = sigma)
+  
+  return(node)
 }
-
-# function(x) {
-#         opt.path = x$opt.path
-#         dim = which(names(opt.path) == "y") - 1
-#         ps = makeParamSet(makeNumericVectorParam(id = "x", len = dim, lower = - 5, upper = 5))      
-#         ids = getParamIds(ps, repeated = TRUE, with.nr = TRUE)
-#         df1 = as.data.frame(opt.path)[, ids]
-#         df2 = as.data.frame(generateRandomDesign(n = nrow(df1), ps))
-#         x$mmd2 = mmd2(df1, df2)
-
-#         return(x)
-#       })
