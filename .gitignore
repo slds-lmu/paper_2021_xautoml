@@ -5,3 +5,5 @@ cached/*
 *.png
 
 *.ipynb_checkpoints*
+
+*.html

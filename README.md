@@ -1,46 +1,16 @@
----
-output: 
-  html_document:
-    keep_md: true
----
-
-
-```
-## 
-## Attaching package: 'renv'
-```
-
-```
-## The following object is masked from 'package:stats':
-## 
-##     update
-```
-
-```
-## The following objects are masked from 'package:utils':
-## 
-##     history, upgrade
-```
-
-```
-## The following objects are masked from 'package:base':
-## 
-##     load, remove
-```
-
-```
-## * The library is already synchronized with the lockfile.
-```
 
 # Explaining Hyperparameter Optimization via PDPs
 
 ![](docs/images/tree_example.png)<!-- -->
 
-This repository gives access to an implementation of the methods presented in the paper submission "Explaining Hyperparameter Optimization via PDPs", as well as all code that was used for the experimental analysis. 
+This repository gives access to an implementation of the methods
+presented in the paper submission “Explaining Hyperparameter
+Optimization via PDPs”, as well as all code that was used for the
+experimental analysis.
 
-This repository is structured as follows: 
+This repository is structured as follows:
 
-```
+``` 
     ├── analysis/               # Scripts used to create figures and tables in the paper
     ├── data/                   # Location where all experimental data is stored
     │   ├── raw/                # Raw datasets for the DNN surrogate benchmark
@@ -52,95 +22,94 @@ This repository is structured as follows:
     ├── R/                      # Implementation of methods 
     ├── LICENSE
     └── README.md               
-```    
+```
 
-## Reproducible Setup 
+## Reproducible Setup
 
-To allow for a proper, reproducible setup of the environment we use the package `renv`. 
+To allow for a proper, reproducible setup of the environment we use the
+package `renv`.
 
-The project dependencies can be installed via 
+The project dependencies can be installed via
 
-
-```r
+``` r
 library("renv")
+```
+
+    ## 
+    ## Attaching package: 'renv'
+
+    ## The following object is masked from 'package:stats':
+    ## 
+    ##     update
+
+    ## The following objects are masked from 'package:utils':
+    ## 
+    ##     history, upgrade
+
+    ## The following objects are masked from 'package:base':
+    ## 
+    ##     load, remove
+
+``` r
 renv::restore()
 ```
 
-```
-## * The library is already synchronized with the lockfile.
-```
+    ## * The library is already synchronized with the lockfile.
 
-## Quick Start  
+## Quick Start
 
-
-```r
+``` r
 # Loading all scripts we need
 source("R/tree_splitting.R")
 ```
 
-```
-## 
-## Attaching package: 'BBmisc'
-```
+    ## 
+    ## Attaching package: 'BBmisc'
 
-```
-## The following object is masked from 'package:base':
-## 
-##     isFALSE
-```
+    ## The following object is masked from 'package:base':
+    ## 
+    ##     isFALSE
 
-```r
+``` r
 source("R/helper.R")
 source("R/marginal_effect.R")
 source("R/plot_functions.R")
 ```
 
-First, assume we have a surrogate model that we want to analyze. 
+First, assume we have a surrogate model that we want to analyze.
 
-Here, for example, we tuned a support vector machine on the `iris` task, and extracted the surrogate model after the last iteration. 
+Here, for example, we tuned a support vector machine on the `iris` task,
+and extracted the surrogate model after the last iteration.
 
-
-```r
+``` r
 library(mlr)
 ```
 
-```
-## Loading required package: ParamHelpers
-```
+    ## Loading required package: ParamHelpers
 
-```
-## 'mlr' is in maintenance mode since July 2019. Future development
-## efforts will go into its successor 'mlr3' (<https://mlr3.mlr-org.com>).
-```
+    ## 'mlr' is in maintenance mode since July 2019. Future development
+    ## efforts will go into its successor 'mlr3' (<https://mlr3.mlr-org.com>).
 
-```r
+``` r
 library(mlrMBO)
 ```
 
-```
-## Loading required package: smoof
-```
+    ## Loading required package: smoof
 
-```
-## Loading required package: checkmate
-```
+    ## Loading required package: checkmate
 
-```r
+``` r
 library(e1071)
 ```
 
-```
-## 
-## Attaching package: 'e1071'
-```
+    ## 
+    ## Attaching package: 'e1071'
 
-```
-## The following object is masked from 'package:mlr':
-## 
-##     impute
-```
+    ## The following object is masked from 'package:mlr':
+    ## 
+    ##     impute
 
-```r
+``` r
 par.set = makeParamSet(
   makeNumericParam("cost", -15, 15, trafo = function(x) 2^x),
   makeNumericParam("gamma", -15, 15, trafo = function(x) 2^x)
@@ -158,75 +127,65 @@ surrogate =  res$mbo.result$models[[1]]
 print(surrogate)
 ```
 
-```
-## Model for learner.id=regr.km; learner.class=regr.km
-## Trained on: task.id = data; obs = 13; features = 2
-## Hyperparameters: jitter=TRUE,covtype=matern3_2,optim.method=gen,nugget.estim=TRUE
-```
+    ## Model for learner.id=regr.km; learner.class=regr.km
+    ## Trained on: task.id = data; obs = 13; features = 2
+    ## Hyperparameters: jitter=TRUE,covtype=matern3_2,optim.method=gen,nugget.estim=TRUE
 
-We are computing the PDP estimate with confidence for hyperparameter `cost`. We use the `marginal_effect_sd_over_mean` function, which uses the `iml` packages. 
+We are computing the PDP estimate with confidence for hyperparameter
+`cost`. We use the `marginal_effect_sd_over_mean` function, which uses
+the `iml` packages.
 
+    ##         cost      mean         sd
+    ## 1 -14.982900 0.4334600 0.10780414
+    ## 2 -13.405465 0.4271929 0.10016707
+    ## 3 -11.828030 0.4204815 0.09301408
+    ## 4 -10.250595 0.4132970 0.08657514
+    ## 5  -8.673160 0.4056233 0.08106157
+    ## 6  -7.095725 0.3975385 0.07662969
 
-```
-##         cost      mean        sd
-## 1 -14.987224 0.5472965 0.2217399
-## 2 -13.411707 0.5685939 0.2024327
-## 3 -11.836189 0.5793145 0.1892719
-## 4 -10.260671 0.5774267 0.1835409
-## 5  -8.685154 0.5700247 0.1744689
-## 6  -7.109636 0.5574741 0.1635412
-```
+We visualize the outcome:
 
-We visualize the outcome: 
-
-
-```r
+``` r
 library(ggplot2)
 
-
-plot_pdp_with_uncertainty_1D(me)
+p = plot_pdp_with_uncertainty_1D(me)
+print(p)
 ```
 
-![](README_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
-To improve the uncertainty estimates, we partition the input space. We perform 3 splits and use the L2-objective. 
+To improve the uncertainty estimates, we partition the input space. We
+perform 3 splits and use the L2-objective.
 
-
-```r
+``` r
 predictor = Predictor$new(model = surrogate, data = data)
 effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "pdp")
 
 tree = compute_tree(effects, data, "SS_L2", 2)
 ```
 
+    ## Loading required package: customtrees
+
+    ## 
+    ## Attaching package: 'customtrees'
+
+    ## The following objects are masked _by_ '.GlobalEnv':
+    ## 
+    ##     adjust_nsplits, adjust_split_point, find_best_binary_split,
+    ##     generate_node_index, generate_split_candidates, get_closest_point,
+    ##     perform_split, split_parent_node
+
+We now want to visualize the PDP in the node with the best objective
+after 3 splits.
+
+``` r
+predictor = Predictor$new(model = surrogate, data = data)
+effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "pdp")
+
+tree = compute_tree(effects, data, "SS_L2", 2)
 ```
-## Loading required package: customtrees
-```
 
-```r
-get_size_of_tree(tree)
-```
+## Reproduce Experiments
 
-```
-## [[1]]
-## [1] 1000
-## 
-## [[2]]
-##  left.child right.child 
-##           3         997 
-## 
-## [[3]]
-##  left.child right.child  left.child right.child 
-##           0           0           3         994
-```
-
-We have fitted a tree of depth 3
-
-
-
-
-
-## Reproduce Experiments 
-
-
-The steps necessary to reproduce the experiments are described [here](benchmarks/README.Rmd).
+The steps necessary to reproduce the experiments are described
+[here](benchmarks/README.Rmd).
