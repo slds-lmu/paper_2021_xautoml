@@ -130,20 +130,3 @@ get_models_data <- function(data, lambda){
 
 
 
-compute_ground_truth_pdps = function(obj, path, dataset, features, testdata, testdata.size, grid.size, optima) {
-  
-  savepath = file.path(path, dataset, paste0("gt_pdp_gridsize_", grid.size, "_testdatasize_", testdata.size, ".rds"))  
-
-  if (file.exists(savepath)) {
-    gtdata = readRDS(savepath)
-  } else {
-    gtdata = lapply(features, function(feature) {
-      marginal_effect_mlp(obj = obj, feature = feature, data = testdata, all.features = features, grid.size = grid.size, optima = optima, method = "pdp+ice")
-    })
-
-    names(gtdata) = features
-    saveRDS(gtdata, savepath)
-  }
-
-  return(gtdata)
-}
