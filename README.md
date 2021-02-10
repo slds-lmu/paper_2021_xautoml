@@ -5,32 +5,6 @@ output:
 ---
 
 
-```
-## 
-## Attaching package: 'renv'
-```
-
-```
-## The following object is masked from 'package:stats':
-## 
-##     update
-```
-
-```
-## The following objects are masked from 'package:utils':
-## 
-##     history, upgrade
-```
-
-```
-## The following objects are masked from 'package:base':
-## 
-##     load, remove
-```
-
-```
-## * The library is already synchronized with the lockfile.
-```
 
 # Explaining Hyperparameter Optimization via PDPs
 
@@ -76,20 +50,6 @@ renv::restore()
 ```r
 # Loading all scripts we need
 source("R/tree_splitting.R")
-```
-
-```
-## 
-## Attaching package: 'BBmisc'
-```
-
-```
-## The following object is masked from 'package:base':
-## 
-##     isFALSE
-```
-
-```r
 source("R/helper.R")
 source("R/marginal_effect.R")
 source("R/plot_functions.R")
@@ -102,45 +62,9 @@ Here, for example, we tuned a support vector machine on the `iris` task, and ext
 
 ```r
 library(mlr)
-```
-
-```
-## Loading required package: ParamHelpers
-```
-
-```
-## 'mlr' is in maintenance mode since July 2019. Future development
-## efforts will go into its successor 'mlr3' (<https://mlr3.mlr-org.com>).
-```
-
-```r
 library(mlrMBO)
-```
-
-```
-## Loading required package: smoof
-```
-
-```
-## Loading required package: checkmate
-```
-
-```r
 library(e1071)
-```
 
-```
-## 
-## Attaching package: 'e1071'
-```
-
-```
-## The following object is masked from 'package:mlr':
-## 
-##     impute
-```
-
-```r
 par.set = makeParamSet(
   makeNumericParam("cost", -15, 15, trafo = function(x) 2^x),
   makeNumericParam("gamma", -15, 15, trafo = function(x) 2^x)
@@ -169,12 +93,12 @@ We are computing the PDP estimate with confidence for hyperparameter `cost`. We 
 
 ```
 ##         cost      mean        sd
-## 1 -14.987224 0.5472965 0.2217399
-## 2 -13.411707 0.5685939 0.2024327
-## 3 -11.836189 0.5793145 0.1892719
-## 4 -10.260671 0.5774267 0.1835409
-## 5  -8.685154 0.5700247 0.1744689
-## 6  -7.109636 0.5574741 0.1635412
+## 1 -14.960776 0.7832994 0.1630659
+## 2 -13.387835 0.7642916 0.1429243
+## 3 -11.814894 0.7338391 0.1270416
+## 4 -10.241953 0.6922000 0.1178139
+## 5  -8.669012 0.6432551 0.1127036
+## 6  -7.096071 0.5894983 0.1080114
 ```
 
 We visualize the outcome: 
