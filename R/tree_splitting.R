@@ -155,25 +155,6 @@ compute_tree = function(effect, testdata, objective, n.split) {
     input.data = list(X = X[, ..split.feats, drop = FALSE], Y = Y)
   }
 
-  else if (objective == "var_gp") {
-
-    pdp.feat = effect$feature.name
-    split.feats = setdiff(names(testdata), pdp.feat)
-
-    # The ys are the predictions (in this case, the standard deviation)
-    X = setDT(testdata)
-    Y = data.table(.id = seq_row(testdata))
-
-    split.objective = function(y, x, requires.x = FALSE, ...) {
-
-      y = y$.id
-
-      mean(get_gp_uncertainty(gg, y))
-    } 
-
-    input.data = list(X = X[, ..split.feats, drop = FALSE], Y = Y)
-  }
-  
   else {
     stop(paste("Objective", objective, "is not supported."))
   } 
