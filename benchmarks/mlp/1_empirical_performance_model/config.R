@@ -12,15 +12,15 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 60L
     # registry name for storing files on drive 
-		registry_name = "LCBench_surrogate_registry_temp" 
+		registry_name = "regs/LCBench_surrogate_registry_temp" 
 	},
 	"REAL" = {
 		# overwrite registry?
 		OVERWRITE = FALSE
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
-    # registry name for storing files on drive     
-		registry_name = "LCBench_surogate_registry"
+    	# registry name for storing files on drive     
+		registry_name = "regs/LCBench_surogate_registry"
 	}
 )
 
@@ -42,6 +42,8 @@ TASK_LOCATION = "data/runs/mlp/"
 
 tasks = list.dirs(TASK_LOCATION, full.names = FALSE)
 tasks = tasks[2:length(tasks)]
+
+
 
 # --- 2. ALGORITHM DESIGN ---
 
