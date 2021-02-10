@@ -160,5 +160,4 @@ for (prob in problems) {
       saveRDS(res, savepath)    
     }
   }
-  }
 }

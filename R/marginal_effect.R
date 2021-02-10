@@ -12,9 +12,13 @@
 
 
 # calculate marginal effects for a specific feature
-marginal_effect = function(obj, feature, data, model, grid.size, all.features, method = "pdp+ice") {
+marginal_effect = function(obj, feature, data = NULL, model, grid.size, all.features, method = "pdp+ice") {
   # output: data.frame with marginal effects of regarded feature
     
+	if (is.null(data)) {
+		data = generateRandomDesign(n = 100, par.set = )
+	}
+
     # create S3 model object and predict function for objective function to calculate effects    
     mymodel = makeS3Obj("mymodel", fun = function(data) return(apply(setDT(data)[, ..all.features, drop = FALSE], 1, obj)))
     predict.mymodel = function(object, newdata) {
@@ -70,7 +74,7 @@ predicted_marginal_effect = function(model, feature, data, grid.size) {
 
 
 # calculate marginal effects for variance function
-marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method, alpha = 0.05, correction = NULL) {
+marginal_effect_sd_over_mean = function(model, feature, data, grid.size = 20, method = "pdp_var", alpha = 0.05, correction = NULL) {
 
 	# method:
 	# - pdp_sd: 			partial dependence over the posterior standard deviation 1 / n * sum s(x_S, x_C) is computed 
@@ -112,31 +116,6 @@ marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method,
 	    	res$sd = sqrt(effects$results$.value) # we have to devide once more by n --> see formula
 	    }
     	res$`NA` = NULL
-    }
-
-    if (method == "pdp_cond") {
-	    mymodel = makeS3Obj("mymodel", fun = function() return(model))
-	    
-	    # Helper function 
-	    predict.mymodel = function(object, newdata) {
-	      pred = predict(object$fun(), newdata = newdata)
-	      getPredictionSE(pred)^2 
-	    }
-
-	    # Get first (#1) of the estimator (i.e. the PDP over the posterior variance)
-	    predictor = Predictor$new(mymodel, data = data, predict.function = predict.mymodel)
-	    effects_1 = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
-
-	    # Get (#2) (i.e., the variance over the ice curves for one grid point)
-	    predictor = Predictor$new(model = model, data = data)
-	    effects_2 = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "ice")
-	    df = setDT(effects_2$results)
-	    df = df[, .(.value = var(.value)), by = feature]
-	    
-	    res$mean_var = effects_1$results$.value
-	    res$var_mean = df$.value
-	    res$sd = sqrt(effects_1$results$.value + df$.value)
-	    res$`NA` = NULL
     }
 
 

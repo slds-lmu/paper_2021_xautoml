@@ -26,7 +26,7 @@ reduce_results_synthetic = function(reg, problems = NULL, savedir) {
 
       tored = toreduce[problem == prob & objective == obj, ]
 
-      res = reduceResultsDataTable(tored) , 
+      res = reduceResultsDataTable(tored) 
       res = ijoin(tab, res)    
       
       saveRDS(res, file.path(savepath, paste0("eval_", obj, ".rds")))

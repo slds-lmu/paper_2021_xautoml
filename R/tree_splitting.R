@@ -1,3 +1,7 @@
+library(R6)
+library(data.table)
+library(BBmisc)
+
 #' @title Performs a single tree based on ICE curves
 #'
 #' @description
@@ -101,7 +105,7 @@ Node <- R6Class("Node", list(
 
 
 # compute single tree based on Class 'Node' 
-compute_tree = function(effect, testdata, objective, n.split) {
+compute_tree = function(effect, testdata, objective = "SS_L2", n.split) {
 
   if (objective == "SS_L1") {
 
@@ -218,120 +222,3 @@ compute_data_for_ice_splitting = function(effect, testdata) {
   
   return(list(X = X, Y = Y))
 }
-
-
-
-################################################################################
-# move to evaulation?
-
-
-compute_trees = function(n.split, models, features, testdata, grid.size, objectives) {
-  
-  # Compute trees for a list of models and a list of objectives on a fixed dataset.
-
-  reslist = list()
-
-  for (i in seq_along(models)) {
-
-    print(paste("Model number", i))
-
-    model = models[[i]]
-
-    results_for_features = lapply(features, function(feature) {
-
-      # Compute all ice curves
-      mymodel = makeS3Obj("mymodel", fun = function() return(model))
-      
-      predict.mymodel = function(object, newdata) {
-        pred = predict(object$fun(), newdata = newdata)
-        pp = getPredictionSE(pred)
-
-        return(pp)
-      }
-
-      predictor = Predictor$new(model = mymodel, data = as.data.frame(testdata)[, model$features], predict.function = predict.mymodel)
-      effect_sd = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
-      
-      predictor = Predictor$new(model = model, data = as.data.frame(testdata)[, model$features])
-      effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
-            
-      effect_sd_d = setDT(effect_sd$results)
-      names(effect_sd_d)[2] = "sd"
-      effect_mean_d = setDT(effect_mean$results)
-      names(effect_mean_d)[2] = "mean"
-
-      effects_merged = batchtools::ijoin(effect_sd_d, effect_mean_d, by = c(feature, ".type", ".id"))
-
-      sf = c(feature, "mean", "sd", ".id")
-      res.pdp = effects_merged[.type == "pdp", ..sf]
-      res.ice = effects_merged[.type == "ice", ..sf]
-
-      trees = lapply(objectives, function(objective) {
-        compute_tree(effect = effect_sd, testdata = testdata, objective = objective, n.split = n.split) 
-      })
-
-      list(res.pdp = res.pdp, res.ice = res.ice, trees = trees)
-    })
-
-    names(results_for_features) = features
-
-    reslist[[i]] = results_for_features
-  }
-
-  reslist
-}
-
-
-
-
-
-
-
-
-compute_trees_pdp_cor = function(n.split, models, features, testdata, grid.size, objectives) {
-  
-  # Compute trees for a list of models and a list of objectives on a fixed dataset.
-
-  reslist = list()
-
-  for (i in seq_along(models)) {
-
-    print(paste("Model number", i))
-
-    model = models[[i]]
-
-    results_for_features = lapply(features, function(feature) {
-
-      # Compute an effect just to get the grid points 
-      predictor = Predictor$new(model = model, data = as.data.frame(testdata)[, model$features])
-      effect_mean = FeatureEffect$new(predictor = predictor, feature = feature, method = "pdp+ice", grid.size = grid.size)
-            
-      effect_mean_d = setDT(effect_mean$results)
-      names(effect_mean_d)[2] = "mean"
-
-      sf = c(feature, "mean", ".id")
-      res.pdp = effect_mean_d[.type == "pdp", ..sf]
-      res.ice = effect_mean_d[.type == "ice", ..sf]
-
-      split.feats = setdiff(names(testdata), feature)
-
-
-
-
-
-      trees = lapply(objectives, function(objective) {
-        compute_tree(effect = effect_sd, testdata = testdata, objective = objective, n.split = n.split) 
-      })
-
-      list(res.pdp = res.pdp, res.ice = res.ice, trees = trees)
-    })
-
-    names(results_for_features) = features
-
-    reslist[[i]] = results_for_features
-  }
-
-  reslist
-}
-
-

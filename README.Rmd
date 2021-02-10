@@ -4,32 +4,8 @@ output:
     keep_md: true
 ---
 
-
-```
-## 
-## Attaching package: 'renv'
-```
-
-```
-## The following object is masked from 'package:stats':
-## 
-##     update
-```
-
-```
-## The following objects are masked from 'package:utils':
-## 
-##     history, upgrade
-```
-
-```
-## The following objects are masked from 'package:base':
-## 
-##     load, remove
-```
-
-```
-## * The library is already synchronized with the lockfile.
+```{r setup, echo=FALSE}
+ggplot2::theme_set(ggplot2::theme_bw())
 ```
 
 # Explaining Hyperparameter Optimization via PDPs
@@ -60,36 +36,16 @@ To allow for a proper, reproducible setup of the environment we use the package 
 
 The project dependencies can be installed via 
 
-
-```r
+```{r}
 library("renv")
 renv::restore()
 ```
 
-```
-## * The library is already synchronized with the lockfile.
-```
-
 ## Quick Start  
 
-
-```r
+```{r warning=FALSE}
 # Loading all scripts we need
 source("R/tree_splitting.R")
-```
-
-```
-## 
-## Attaching package: 'BBmisc'
-```
-
-```
-## The following object is masked from 'package:base':
-## 
-##     isFALSE
-```
-
-```r
 source("R/helper.R")
 source("R/marginal_effect.R")
 source("R/plot_functions.R")
@@ -99,48 +55,11 @@ First, assume we have a surrogate model that we want to analyze.
 
 Here, for example, we tuned a support vector machine on the `iris` task, and extracted the surrogate model after the last iteration. 
 
-
-```r
+```{r warning=FALSE}
 library(mlr)
-```
-
-```
-## Loading required package: ParamHelpers
-```
-
-```
-## 'mlr' is in maintenance mode since July 2019. Future development
-## efforts will go into its successor 'mlr3' (<https://mlr3.mlr-org.com>).
-```
-
-```r
 library(mlrMBO)
-```
-
-```
-## Loading required package: smoof
-```
-
-```
-## Loading required package: checkmate
-```
-
-```r
 library(e1071)
-```
 
-```
-## 
-## Attaching package: 'e1071'
-```
-
-```
-## The following object is masked from 'package:mlr':
-## 
-##     impute
-```
-
-```r
 par.set = makeParamSet(
   makeNumericParam("cost", -15, 15, trafo = function(x) 2^x),
   makeNumericParam("gamma", -15, 15, trafo = function(x) 2^x)
@@ -158,66 +77,36 @@ surrogate =  res$mbo.result$models[[1]]
 print(surrogate)
 ```
 
-```
-## Model for learner.id=regr.km; learner.class=regr.km
-## Trained on: task.id = data; obs = 13; features = 2
-## Hyperparameters: jitter=TRUE,covtype=matern3_2,optim.method=gen,nugget.estim=TRUE
-```
-
 We are computing the PDP estimate with confidence for hyperparameter `cost`. We use the `marginal_effect_sd_over_mean` function, which uses the `iml` packages. 
 
+```{r warning=FALSE, echo=FALSE}
+library(iml)
 
-```
-##         cost      mean        sd
-## 1 -14.987224 0.5472965 0.2217399
-## 2 -13.411707 0.5685939 0.2024327
-## 3 -11.836189 0.5793145 0.1892719
-## 4 -10.260671 0.5774267 0.1835409
-## 5  -8.685154 0.5700247 0.1744689
-## 6  -7.109636 0.5574741 0.1635412
+# Data used to compute the Monte Carlo estimate
+data = generateRandomDesign(n = 1000, par.set = par.set)
+
+me = marginal_effect_sd_over_mean(model = surrogate, feature = "cost", data = data, method = "pdp_var")
+head(me)
 ```
 
 We visualize the outcome: 
 
-
-```r
+```{r}
 library(ggplot2)
 
 
 plot_pdp_with_uncertainty_1D(me)
 ```
 
-![](README_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
-
 To improve the uncertainty estimates, we partition the input space. We perform 3 splits and use the L2-objective. 
 
-
-```r
+```{r warning = FALSE}
 predictor = Predictor$new(model = surrogate, data = data)
 effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "pdp")
 
 tree = compute_tree(effects, data, "SS_L2", 2)
-```
 
-```
-## Loading required package: customtrees
-```
-
-```r
 get_size_of_tree(tree)
-```
-
-```
-## [[1]]
-## [1] 1000
-## 
-## [[2]]
-##  left.child right.child 
-##           3         997 
-## 
-## [[3]]
-##  left.child right.child  left.child right.child 
-##           0           0           3         994
 ```
 
 We have fitted a tree of depth 3

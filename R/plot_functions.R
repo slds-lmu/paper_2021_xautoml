@@ -39,3 +39,26 @@ compute_pdp_for_node = function(node, testdata, model, pdp.feature, grid.size, o
 }
 
 
+plot_pdp_with_uncertainty_1D = function(me, me.gt = NULL, alpha = 0.05) {
+
+    pdp.feature = names(me)[1]
+
+    p = ggplot() 
+  
+    if (!is.null(me.gt)) {
+      
+      p = p + geom_line(data = me.gt, aes_string(x = pdp.feature, y = "mean"))                        
+      
+    }
+   
+    if ("sd" %in% names(me)) {
+      q = qnorm(1 - alpha / 2)
+      me$lower = me$mean - q * me$sd
+      me$upper = me$mean + q * me$sd 
+
+      p = p + geom_ribbon(data = me, aes_string(x = pdp.feature, ymin = "lower", ymax = "upper"), alpha = 0.2)    
+    } 
+    p = p + geom_line(data = me, aes_string(x = pdp.feature, y = "mean"), colour = "blue") 
+
+    return(p)
+}

@@ -269,14 +269,14 @@ mmd2 = function(d1, d2, sigma = NULL) {
   cross.kernel(d1, d1, sigma = sigma) - 2 * cross.kernel(d1, d2, sigma = sigma) + cross.kernel(d2, d2, sigma = sigma)
 }
 
-function(x) {
-        opt.path = x$opt.path
-        dim = which(names(opt.path) == "y") - 1
-        ps = makeParamSet(makeNumericVectorParam(id = "x", len = dim, lower = - 5, upper = 5))      
-        ids = getParamIds(ps, repeated = TRUE, with.nr = TRUE)
-        df1 = as.data.frame(opt.path)[, ids]
-        df2 = as.data.frame(generateRandomDesign(n = nrow(df1), ps))
-        x$mmd2 = mmd2(df1, df2)
+# function(x) {
+#         opt.path = x$opt.path
+#         dim = which(names(opt.path) == "y") - 1
+#         ps = makeParamSet(makeNumericVectorParam(id = "x", len = dim, lower = - 5, upper = 5))      
+#         ids = getParamIds(ps, repeated = TRUE, with.nr = TRUE)
+#         df1 = as.data.frame(opt.path)[, ids]
+#         df2 = as.data.frame(generateRandomDesign(n = nrow(df1), ps))
+#         x$mmd2 = mmd2(df1, df2)
 
-        return(x)
-      })
+#         return(x)
+#       })
