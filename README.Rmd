@@ -4,6 +4,7 @@ output: rmarkdown::github_document
 
 ```{r setup, echo=FALSE}
 ggplot2::theme_set(ggplot2::theme_bw())
+set.seed(1234)
 ```
 
 # Explaining Hyperparameter Optimization via PDPs
@@ -34,14 +35,14 @@ To allow for a proper, reproducible setup of the environment we use the package 
 
 The project dependencies can be installed via 
 
-```{r warning=FALSE, comment=FALSE}
+```{r warning=FALSE, comment=FALSE, results = "hide", message=FALSE}
 library("renv")
 renv::restore()
 ```
 
 ## Quick Start  
 
-```{r warning=FALSE}
+```{r warning=FALSE, comment=FALSE, message=FALSE}
 # Loading all scripts we need
 source("R/tree_splitting.R")
 source("R/helper.R")
@@ -53,7 +54,7 @@ First, assume we have a surrogate model that we want to analyze.
 
 Here, for example, we tuned a support vector machine on the `iris` task, and extracted the surrogate model after the last iteration. 
 
-```{r warning=FALSE}
+```{r warning=FALSE, comment=FALSE, message=FALSE}
 library(mlr)
 library(mlrMBO)
 library(e1071)
@@ -98,7 +99,7 @@ p = plot_pdp_with_uncertainty_1D(me)
 print(p)
 ```
 
-To improve the uncertainty estimates, we partition the input space. We perform 3 splits and use the L2-objective. 
+To improve the uncertainty estimates, we partition the input space. We perform 2 splits and use the L2-objective. 
 
 ```{r warning = FALSE}
 predictor = Predictor$new(model = surrogate, data = data)
@@ -107,7 +108,7 @@ effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "p
 tree = compute_tree(effects, data, "SS_L2", 2)
 ```
 
-We now want to visualize the PDP in the node with the best objective after 3 splits. 
+We now want to visualize the PDP in the node with the best objective after 1 split. 
 
 ```{r warning = FALSE}
 plot_pdp_for_node(node = tree[[2]][[2]], testdata = data, model = surrogate, pdp.feature = "cost", grid.size = 20)

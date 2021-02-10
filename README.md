@@ -33,44 +33,14 @@ The project dependencies can be installed via
 
 ``` r
 library("renv")
-```
-
-    FALSE 
-    FALSE Attaching package: 'renv'
-
-    FALSE The following object is masked from 'package:stats':
-    FALSE 
-    FALSE     update
-
-    FALSE The following objects are masked from 'package:utils':
-    FALSE 
-    FALSE     history, upgrade
-
-    FALSE The following objects are masked from 'package:base':
-    FALSE 
-    FALSE     load, remove
-
-``` r
 renv::restore()
 ```
-
-    FALSE * The library is already synchronized with the lockfile.
 
 ## Quick Start
 
 ``` r
 # Loading all scripts we need
 source("R/tree_splitting.R")
-```
-
-    ## 
-    ## Attaching package: 'BBmisc'
-
-    ## The following object is masked from 'package:base':
-    ## 
-    ##     isFALSE
-
-``` r
 source("R/helper.R")
 source("R/marginal_effect.R")
 source("R/plot_functions.R")
@@ -83,33 +53,8 @@ and extracted the surrogate model after the last iteration.
 
 ``` r
 library(mlr)
-```
-
-    ## Loading required package: ParamHelpers
-
-    ## 'mlr' is in maintenance mode since July 2019. Future development
-    ## efforts will go into its successor 'mlr3' (<https://mlr3.mlr-org.com>).
-
-``` r
 library(mlrMBO)
-```
-
-    ## Loading required package: smoof
-
-    ## Loading required package: checkmate
-
-``` r
 library(e1071)
-```
-
-    ## 
-    ## Attaching package: 'e1071'
-
-    ## The following object is masked from 'package:mlr':
-    ## 
-    ##     impute
-
-``` r
 library(BBmisc)
 library(data.table)
 
@@ -130,21 +75,21 @@ surrogate =  res$mbo.result$models[[1]]
 print(surrogate)
 ```
 
-    ## Model for learner.id=regr.km; learner.class=regr.km
-    ## Trained on: task.id = data; obs = 13; features = 2
-    ## Hyperparameters: jitter=TRUE,covtype=matern3_2,optim.method=gen,nugget.estim=TRUE
+    FALSE Model for learner.id=regr.km; learner.class=regr.km
+    FALSE Trained on: task.id = data; obs = 13; features = 2
+    FALSE Hyperparameters: jitter=TRUE,covtype=matern3_2,optim.method=gen,nugget.estim=TRUE
 
 We are computing the PDP estimate with confidence for hyperparameter
 `cost`. We use the `marginal_effect_sd_over_mean` function, which uses
 the `iml` packages.
 
     ##        cost      mean         sd
-    ## 1 -9.998318 0.7561011 0.09025358
-    ## 2 -9.262719 0.7588126 0.06684826
-    ## 3 -8.527120 0.7601592 0.05138241
-    ## 4 -7.791522 0.7588288 0.04146937
-    ## 5 -7.055923 0.7522169 0.03390507
-    ## 6 -6.320325 0.7356426 0.03462486
+    ## 1 -9.998017 0.8085137 0.12850346
+    ## 2 -9.261563 0.8223581 0.11260680
+    ## 3 -8.525109 0.8271599 0.09651956
+    ## 4 -7.788655 0.8161618 0.07913981
+    ## 5 -7.052201 0.7814865 0.06697429
+    ## 6 -6.315747 0.7200586 0.06511970
 
 We visualize the outcome:
 
@@ -158,7 +103,7 @@ print(p)
 ![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 To improve the uncertainty estimates, we partition the input space. We
-perform 3 splits and use the L2-objective.
+perform 2 splits and use the L2-objective.
 
 ``` r
 predictor = Predictor$new(model = surrogate, data = data)
@@ -167,12 +112,8 @@ effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "p
 tree = compute_tree(effects, data, "SS_L2", 2)
 ```
 
-    ## Loading required package: customtrees
-    ## Loading required package: customtrees
-    ## Loading required package: customtrees
-
 We now want to visualize the PDP in the node with the best objective
-after 3 splits.
+after 1 split.
 
 ``` r
 plot_pdp_for_node(node = tree[[2]][[2]], testdata = data, model = surrogate, pdp.feature = "cost", grid.size = 20)
