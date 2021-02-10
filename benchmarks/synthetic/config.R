@@ -1,7 +1,5 @@
 # --- 0. SETUP ---
 
-source("R/helper.R")
-
 # - test or real setup for better testing - 
 SETUP = "REAL"  
 
@@ -12,7 +10,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 60L
     # registry name for storing files on drive 
-		registry_name = "results/synthetic_tree_splitting_test" 
+		registry_name = "regs/synthetic_tree_splitting_test" 
 	},
 	"REAL" = {
 		# overwrite registry?
@@ -20,7 +18,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
     # registry name for storing files on drive     
-		registry_name = "results/synthetic_tree_splitting_enhanced_eval"
+		registry_name = "regs/synthetic_tree_splitting"
 	}
 )
 
@@ -44,7 +42,7 @@ lapply(packages, library, character.only = TRUE)
 TASK_LOCATION = "data/runs/synthetic/"
 
 tasks = c("StyblinskiTang")
-dimensions = c(2, 3, 5, 8, 10)
+dimensions = c(3, 5, 8)
 
 
 pdes = data.table(tasks = tasks, dimensions = dimensions)
@@ -53,9 +51,6 @@ pdes = data.table(tasks = tasks, dimensions = dimensions)
 # --- 2. ALGORITHM DESIGN ---
 
 perform_tree_splitting_synthetic = function(data, job, instance, grid.size, testdata.size, n.splits, lambda, objective) {
-
-	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/mlp_helper.r")
-	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/helper_evaluation.r")
 
 	source("R/pdp_helpers.R")
 	source("R/helper_evaluation.r")
@@ -128,7 +123,7 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
     )
 }
 
-ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 5, lambda = c(0.1, 1, 2, 5, 10, 1000))
+ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 5, lambda = c(0.1, 1, 5))
 grid = expand.grid(seq(1, nrow(ades)), objective = c("SS_sd", "SS_area", "SS_L1", "SS_L2"))
 ades = cbind(ades[grid$Var1, ], objective = grid$objective)
 

@@ -3,6 +3,7 @@
 library(batchtools)
 
 source("benchmarks/synthetic/config.R")
+source("benchmarks/helper_experiments.R")
 
 lapply(packages, require, character.only = TRUE)
 

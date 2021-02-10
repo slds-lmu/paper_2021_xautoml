@@ -2,14 +2,14 @@
 
 library(batchtools)
 
-source("R/benchmarks/LCBench/compute_surrogate_config.R")
+source("benchmarks/mlp/1_empirical_performance_model/config.R")
 
 lapply(packages, require, character.only = TRUE)
 
 
 # --- 1. SETUP REGISTRY ---
 
-reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "R/LCBench/compute_surrogate_config.R")
+reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "benchmarks/mlp/1_empirical_performance_model/config.R")
 
 # --- 2. ADD PROBLEMS, ALGORITHMS, EXPERIMENTS ---
 
