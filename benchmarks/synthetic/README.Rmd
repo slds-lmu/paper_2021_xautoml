@@ -1,0 +1,53 @@
+---
+output: rmarkdown::github_document
+---
+
+```{r setup}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+# Experiments on a Synthetic Function (Section 6.1)
+
+To reproduce the experiments on a synthetic function, you simply run a couple of scripts. 
+
+1. Create an experimental registry, add experiments and problem via sourcing the `generate_data.R`. 
+
+```{r}
+source("benchmarks/synthetic/generate_data.R")
+```
+
+The above script create an experimental registry in `regs/synthetic_tree_splitting`. 
+
+The core part, which is the actual definition of the experiment is in the function `perform_tree_splitting_synthetic(...)` in the file `benchmarks/synthetic/config.R`. In this function, an MBO run is performed. Then, the tree splitting is performed based on the last surrogate model of this benchmark. 
+
+2. Submit all your experiments 
+
+```{r}
+reg = loadRegistry("regs/synthetic_tree_splitting", writeable = TRUE)
+
+# Overview table over experiments to be run
+tab = summarizeExperiments(
+  by = c("job.id", "algorithm", "problem", "lambda", "objective", "n.splits"))
+
+# Submit all experiments to your local system  
+submitJobs(tab)
+
+# Alternatively, submit them to the linux cluster with respective resources
+# source("benchmarks/resources.R")
+# submitJobs(tab, resources = resources.serial.default)
+```
+
+3. Reduce the results and store them in a compact format
+
+Running the function `reduce_results_synthetic(...)` will store all results, splitted w.r.t. the problem and a specified directory. 
+
+
+```{r}
+reg = loadRegistry("regs/synthetic_tree_splitting")
+
+# Check status of the experiments 
+getStatus()
+
+source("benchmarks/synthetic/reduce.R")
+reduce_results_synthetic(reg, savedir = "data/runs/synthetic")
+```

@@ -17,3 +17,18 @@ safeSetupRegistry = function(registry_name, overwrite, packages, def) {
   }
   return(reg)
 }
+
+readProblem = function(data, job, lrn, ...) {
+
+  task = readRDS(file.path(data, "task.rds"))
+
+  learner = PROBLEMS[[lrn]]$learner
+  ps = PROBLEMS[[lrn]]$ps
+  obj = PROBLEMS[[lrn]]$obj
+
+  list(
+    task = task, 
+    learner = learner,
+    ps = ps 
+  )
+}
