@@ -16,99 +16,11 @@ Architecture | 28-way Haswell-EP nodes
 Cores per Node | 1
 Memory limit (per core) | 2.2 GB  
 
-
-## Experiments on a Synthetic Function (Section 6.1)
-
-To reproduce the experiments on a synthetic function, you simply run a couple of scripts. 
-
-1. Create an experimental registry, add experiments and problem via sourcing the `generate_data.R`. 
-
-```{r}
-source("benchmarks/synthetic/generate_data.R")
-```
-
-The above script create an experimental registry in `regs/synthetic_tree_splitting`. 
-
-The core part, which is the actual definition of the experiment is in the function `perform_tree_splitting_synthetic(...)` in the file `benchmarks/synthetic/config.R`. In this function, an MBO run is performed. Then, the tree splitting is performed based on the last surrogate model of this benchmark. 
-
-2. Submit all your experiments 
-
-```{r}
-reg = loadRegistry("regs/synthetic_tree_splitting", writeable = TRUE)
-
-# Overview table over experiments to be run
-tab = summarizeExperiments(
-  by = c("job.id", "algorithm", "problem", "lambda", "objective", "n.splits"))
-
-# Submit all experiments to your local system  
-submitJobs(tab)
-
-# Alternatively, submit them to the linux cluster with respective resources
-# source("benchmarks/resources.R")
-# submitJobs(tab, resources = resources.serial.default)
-```
-
-3. Reduce the results and store them in a compact format
-
-Running the function `reduce_results_synthetic(...)` will store all results, splitted w.r.t. the problem and a specified directory. 
-
-
-```{r}
-reg = loadRegistry("regs/synthetic_tree_splitting")
-
-# Check status of the experiments 
-getStatus()
-
-source("benchmarks/synthetic/reduce.R")
-reduce_results_synthetic(reg, savedir = "data/runs/synthetic")
-```
-
-
-## Experiments on a DNN Surrogate Benchmark (Section 6.2)
-
-The setup of this experiment is slightly more complicated, since we first have to train an empirical performance model, before we can perform the MBO runs and perform the tree splitting. 
-
-
-### Training the Empirical Performance Model 
-
-In order to train the empirical performance model, the LCBench data needs first to be downloaded from [here](https://ndownloader.figshare.com/files/21188598) and unzipped. 
-
-Then, the following `get_data_from_LCBench.py` allows to store the respective datasets into a .csv files in a proper directory structure. The python script was tested with Python 3.7.6. 
-
-As a result, you will find the LCBench data stored in `data/runs/mlp/<dataset>/0_objective/lcbench2000.csv`. 
-
-Then, the following script allows will again setup the experimental registry in which the surrogates are computed. 
-
-```{r}
-source("benchmarks/mlp/1_empirical_performance_model/generate_data.R")
-```
-
-The above script create an experimental registry in `regs/LCBench_surogate_registry`. 
-
-The core part, which is the actual definition of the experiment is in the function `randomsearch(...)` in the file `benchmarks/synthetic/config.R`. In this function, a basic random search is performed to find a proper configuration of a random forest, and fit a random forest with this configuration. 
-
-Jobs are submitted as follows. 
-
-```{r}
-reg = loadRegistry("regs/LCBench_surogate_registry", writeable = TRUE)
-
-# Overview table over experiments to be run
-tab = summarizeExperiments(
-  by = c("job.id", "algorithm", "problem"))
-
-# Submit all experiments to your local system  
-submitJobs(tab)
-
-# Alternatively, submit them to the linux cluster with respective resources
-# source("benchmarks/resources.R")
-# submitJobs(tab, resources = resources.serial.default)
-```
+Section  | Type of Experiment | Link |
+--- | --- |  --- | 
+6.1 | Synthetic Function | [link](benchmarks/synthetic/README.Rmd) |
+6.2 | MLP | [link](benchmarks/mlp/README.Rmd) |
 
 
 
 
-### Run MBO 
-
-
-
-### Perform the Tree Splitting 
