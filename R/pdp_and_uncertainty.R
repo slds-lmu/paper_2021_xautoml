@@ -1,11 +1,27 @@
+#' @title Calculates PDPs and associated confidence estimates
+#'
+#' @description
+#' Uses functions in customtrees.r for splitting effect curves according to defined objective.
+#'
+#' @param obj objective function that needs to be optimized (groundtruth)
+#' @param feature feature (hyperparameter) lambda_S
+#' @param all.features character vector with feature names of regarded dataset
+#' @param data dataset
+#' @param model a model object that inherents an own predict function
+#' @param grid.size size/number of equidistant grid to calculate marginal effects for lambda_S
+
+
+# calculate marginal effects for a specific feature
 marginal_effect = function(obj, feature, data, model, grid.size, all.features, method = "pdp+ice") {
-        
+  # output: data.frame with marginal effects of regarded feature
+    
+    # create S3 model object and predict function for objective function to calculate effects    
     mymodel = makeS3Obj("mymodel", fun = function(data) return(apply(setDT(data)[, ..all.features, drop = FALSE], 1, obj)))
-                        
     predict.mymodel = function(object, newdata) {
         object$fun(newdata)
     }
-                        
+    
+    # calculate pdp (and ice curves)                    
     predictor = Predictor$new(model = mymodel, data = setDT(data)[, ..all.features, drop = FALSE], predict.function = predict.mymodel)
     effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = method)
 
@@ -15,7 +31,7 @@ marginal_effect = function(obj, feature, data, model, grid.size, all.features, m
     return(res)
 }
 
-
+# we probably need only one of them?
 marginal_effect_mlp = function(obj, feature, data, model, grid.size) {
         
     mymodel = makeS3Obj("mymodel", fun = function(data) {
@@ -38,7 +54,10 @@ marginal_effect_mlp = function(obj, feature, data, model, grid.size) {
     return(res)
 }
 
+
+# calculate PDP for a given model and feature
 predicted_marginal_effect = function(model, feature, data, grid.size) {
+  # output: data.frame with marginal effects of regarded feature
                                 
     predictor = Predictor$new(model = model, data = data)
     effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
@@ -49,14 +68,19 @@ predicted_marginal_effect = function(model, feature, data, grid.size) {
     return(res)
 }
 
+
+# calculate marginal effects for variance function
 marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method, alpha = 0.05, correction = NULL) {
 
-	# Different methods to estimate the standard deviation are implemented
+	# method:
 	# - pdp_sd: 			partial dependence over the posterior standard deviation 1 / n * sum s(x_S, x_C) is computed 
 	# - pdp_var: 			partial dependence over the posterior variance 1 / n * sum s^2(x_S, x_C); 
 	# 						then, we device by 1 / n and take the square root to get an estimate for the standard deviation of the mean
 	# - pdp_var_gp: 		this estimator takes into account the correlation structure of this variant 
 	# - thompson: 			An empirical variant via thompson sampling 
+  
+  # output:   data.frame with marginal effects of uncertainty estimate depending on chosen method for a chosen feature
+  
 
     # standard PDP over mean 
     res = predicted_marginal_effect(model, feature, data, grid.size)
@@ -153,12 +177,14 @@ marginal_effect_sd_over_mean = function(model, feature, data, grid.size, method,
     	res = do.call(rbind, res)
     }
 
-
-
     return(res)
 }
 
+
+
 conditional_mean_sd = function(model, feature, data, method, grid.size) {
+  
+  # method:
 	# - pdp_cond: 			c(lambda) | lambda_S = lambda_S; variance derived according to law of total variance
 	# - pdp_cond_thomps: 	same as pdp_cond, but empirical variant via thomspon sampling 
 	    # standard PDP over mean 
