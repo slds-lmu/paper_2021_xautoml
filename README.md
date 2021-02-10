@@ -35,26 +35,26 @@ The project dependencies can be installed via
 library("renv")
 ```
 
-    ## 
-    ## Attaching package: 'renv'
+    FALSE 
+    FALSE Attaching package: 'renv'
 
-    ## The following object is masked from 'package:stats':
-    ## 
-    ##     update
+    FALSE The following object is masked from 'package:stats':
+    FALSE 
+    FALSE     update
 
-    ## The following objects are masked from 'package:utils':
-    ## 
-    ##     history, upgrade
+    FALSE The following objects are masked from 'package:utils':
+    FALSE 
+    FALSE     history, upgrade
 
-    ## The following objects are masked from 'package:base':
-    ## 
-    ##     load, remove
+    FALSE The following objects are masked from 'package:base':
+    FALSE 
+    FALSE     load, remove
 
 ``` r
 renv::restore()
 ```
 
-    ## * The library is already synchronized with the lockfile.
+    FALSE * The library is already synchronized with the lockfile.
 
 ## Quick Start
 
@@ -110,9 +110,12 @@ library(e1071)
     ##     impute
 
 ``` r
+library(BBmisc)
+library(data.table)
+
 par.set = makeParamSet(
-  makeNumericParam("cost", -15, 15, trafo = function(x) 2^x),
-  makeNumericParam("gamma", -15, 15, trafo = function(x) 2^x)
+  makeNumericParam("cost", -10, 4, trafo = function(x) 2^x),
+  makeNumericParam("gamma", -10, 4, trafo = function(x) 2^x)
 )
 
 ctrl = makeMBOControl()
@@ -135,13 +138,13 @@ We are computing the PDP estimate with confidence for hyperparameter
 `cost`. We use the `marginal_effect_sd_over_mean` function, which uses
 the `iml` packages.
 
-    ##         cost      mean         sd
-    ## 1 -14.982900 0.4334600 0.10780414
-    ## 2 -13.405465 0.4271929 0.10016707
-    ## 3 -11.828030 0.4204815 0.09301408
-    ## 4 -10.250595 0.4132970 0.08657514
-    ## 5  -8.673160 0.4056233 0.08106157
-    ## 6  -7.095725 0.3975385 0.07662969
+    ##        cost      mean         sd
+    ## 1 -9.998318 0.7561011 0.09025358
+    ## 2 -9.262719 0.7588126 0.06684826
+    ## 3 -8.527120 0.7601592 0.05138241
+    ## 4 -7.791522 0.7588288 0.04146937
+    ## 5 -7.055923 0.7522169 0.03390507
+    ## 6 -6.320325 0.7356426 0.03462486
 
 We visualize the outcome:
 
@@ -165,27 +168,19 @@ tree = compute_tree(effects, data, "SS_L2", 2)
 ```
 
     ## Loading required package: customtrees
-
-    ## 
-    ## Attaching package: 'customtrees'
-
-    ## The following objects are masked _by_ '.GlobalEnv':
-    ## 
-    ##     adjust_nsplits, adjust_split_point, find_best_binary_split,
-    ##     generate_node_index, generate_split_candidates, get_closest_point,
-    ##     perform_split, split_parent_node
+    ## Loading required package: customtrees
+    ## Loading required package: customtrees
 
 We now want to visualize the PDP in the node with the best objective
 after 3 splits.
 
 ``` r
-predictor = Predictor$new(model = surrogate, data = data)
-effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "pdp")
-
-tree = compute_tree(effects, data, "SS_L2", 2)
+plot_pdp_for_node(node = tree[[2]][[2]], testdata = data, model = surrogate, pdp.feature = "cost", grid.size = 20)
 ```
+
+![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 ## Reproduce Experiments
 
 The steps necessary to reproduce the experiments are described
-[here](benchmarks/README.Rmd).
+[here](benchmarks/README.md).
