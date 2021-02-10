@@ -57,8 +57,6 @@ Node <- R6Class("Node", list(
 
     computeSplit = function(X, Y, objective, optimizer, min.split = 10) {
       
-      require("customtrees")
-
       if (length(self$subset.idx) < min.split) {
         self$stop.criterion.met = TRUE
       } else {
