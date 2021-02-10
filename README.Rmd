@@ -65,7 +65,7 @@ par.set = makeParamSet(
 
 ctrl = makeMBOControl()
 ctrl = setMBOControlInfill(ctrl, crit = makeMBOInfillCritCB(cb.lambda = 1))
-ctrl = setMBOControlTermination(ctrl, iters = 5)
+ctrl = setMBOControlTermination(ctrl, iters = 20)
 tune.ctrl = makeTuneControlMBO(mbo.control = ctrl)
 res = tuneParams(makeLearner("classif.svm"), iris.task, cv3, par.set = par.set, control = tune.ctrl,
   show.info = FALSE)
@@ -81,7 +81,7 @@ We are computing the PDP estimate with confidence for hyperparameter `cost`. We 
 library(iml)
 
 # Data used to compute the Monte Carlo estimate
-data = generateRandomDesign(n = 1000, par.set = par.set)
+data = generateRandomDesign(n = 100, par.set = par.set)
 
 me = marginal_effect_sd_over_mean(model = surrogate, feature = "cost", data = data, method = "pdp_var")
 head(me)
@@ -102,16 +102,13 @@ To improve the uncertainty estimates, we partition the input space. We perform 3
 predictor = Predictor$new(model = surrogate, data = data)
 effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "pdp")
 
-tree = compute_tree(effects, data, "SS_L2", 2)
+tree = compute_tree(effects, data, "SS_L2", 5)
 ```
 
 We now want to visualize the PDP in the node with the best objective after 3 splits. 
 
 ```{r warning = FALSE}
-predictor = Predictor$new(model = surrogate, data = data)
-effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "pdp")
-
-tree = compute_tree(effects, data, "SS_L2", 2)
+plot_pdp_for_node(tree)
 ```
 
 

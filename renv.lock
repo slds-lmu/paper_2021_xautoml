@@ -352,18 +352,6 @@
       "Repository": "CRAN",
       "Hash": "2b7d10581cc730804e9ed178c8374bd6"
     },
-    "customtrees": {
-      "Package": "customtrees",
-      "Version": "1.0",
-      "Source": "GitHub",
-      "RemoteType": "github",
-      "RemoteHost": "api.github.com",
-      "RemoteRepo": "customtrees",
-      "RemoteUsername": "giuseppec",
-      "RemoteRef": "HEAD",
-      "RemoteSha": "55c5c8f378a3c57b7646eddf882f9c1a3a5388c4",
-      "Hash": "97aeedf2227728c28296605a709c9a65"
-    },
     "data.table": {
       "Package": "data.table",
       "Version": "1.13.6",
