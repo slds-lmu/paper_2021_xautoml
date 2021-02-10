@@ -6,6 +6,4 @@ cached/*
 
 *.ipynb_checkpoints*
 
-README_files/*
-
 *.html

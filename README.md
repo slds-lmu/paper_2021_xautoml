@@ -135,21 +135,21 @@ We are computing the PDP estimate with confidence for hyperparameter
 `cost`. We use the `marginal_effect_sd_over_mean` function, which uses
 the `iml` packages.
 
-    ##         cost      mean        sd
-    ## 1 -14.980323 0.5703423 0.1384431
-    ## 2 -13.403430 0.5896802 0.1254210
-    ## 3 -11.826538 0.6094885 0.1168519
-    ## 4 -10.249646 0.6269249 0.1106671
-    ## 5  -8.672753 0.6379668 0.1066752
-    ## 6  -7.095861 0.6323226 0.1034189
+    ##         cost      mean         sd
+    ## 1 -14.982900 0.4334600 0.10780414
+    ## 2 -13.405465 0.4271929 0.10016707
+    ## 3 -11.828030 0.4204815 0.09301408
+    ## 4 -10.250595 0.4132970 0.08657514
+    ## 5  -8.673160 0.4056233 0.08106157
+    ## 6  -7.095725 0.3975385 0.07662969
 
 We visualize the outcome:
 
 ``` r
 library(ggplot2)
 
-
-plot_pdp_with_uncertainty_1D(me)
+p = plot_pdp_with_uncertainty_1D(me)
+print(p)
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
@@ -175,22 +175,15 @@ tree = compute_tree(effects, data, "SS_L2", 2)
     ##     generate_node_index, generate_split_candidates, get_closest_point,
     ##     perform_split, split_parent_node
 
+We now want to visualize the PDP in the node with the best objective
+after 3 splits.
+
 ``` r
-get_size_of_tree(tree)
+predictor = Predictor$new(model = surrogate, data = data)
+effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "pdp")
+
+tree = compute_tree(effects, data, "SS_L2", 2)
 ```
-
-    ## [[1]]
-    ## [1] 1000
-    ## 
-    ## [[2]]
-    ##  left.child right.child 
-    ##           3         997 
-    ## 
-    ## [[3]]
-    ##  left.child right.child  left.child right.child 
-    ##           0           0           3         994
-
-We have fitted a tree of depth 3
 
 ## Reproduce Experiments
 

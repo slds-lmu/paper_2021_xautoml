@@ -1,7 +1,5 @@
 ---
-output: 
-  html_document:
-    keep_md: true
+output: rmarkdown::github_document
 ---
 
 ```{r setup, echo=FALSE}
@@ -94,8 +92,8 @@ We visualize the outcome:
 ```{r}
 library(ggplot2)
 
-
-plot_pdp_with_uncertainty_1D(me)
+p = plot_pdp_with_uncertainty_1D(me)
+print(p)
 ```
 
 To improve the uncertainty estimates, we partition the input space. We perform 3 splits and use the L2-objective. 
@@ -105,12 +103,16 @@ predictor = Predictor$new(model = surrogate, data = data)
 effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "pdp")
 
 tree = compute_tree(effects, data, "SS_L2", 2)
-
-get_size_of_tree(tree)
 ```
 
-We have fitted a tree of depth 3
+We now want to visualize the PDP in the node with the best objective after 3 splits. 
 
+```{r warning = FALSE}
+predictor = Predictor$new(model = surrogate, data = data)
+effects = FeatureEffect$new(predictor = predictor, feature = "cost", method = "pdp")
+
+tree = compute_tree(effects, data, "SS_L2", 2)
+```
 
 
 
