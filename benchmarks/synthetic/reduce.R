@@ -19,10 +19,10 @@ reduce_results_synthetic = function(reg, problems = NULL, savedir) {
 
       print(prob)
 
-      savepath = file.path(savedir, prob)
+      savepath = file.path(savedir, prob, "2_3_effects_and_trees")
 
       if (!dir.exists(savepath))
-        dir.create(savepath)
+        dir.create(file.path(savepath), recursive = TRUE)
 
       tored = toreduce[problem == prob & objective == obj, ]
 

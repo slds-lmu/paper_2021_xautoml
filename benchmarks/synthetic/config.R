@@ -30,8 +30,8 @@ packages = c(
   "smoof", 
   "data.table", 
   "iml",
-  "ranger",
-  "BBmisc"
+  "BBmisc",
+  "kernlab"
 ) 
 
 lapply(packages, library, character.only = TRUE)
@@ -52,11 +52,12 @@ pdes = data.table(tasks = tasks, dimensions = dimensions)
 
 perform_tree_splitting_synthetic = function(data, job, instance, grid.size, testdata.size, n.splits, lambda, objective) {
 
-	source("R/pdp_helpers.R")
-	source("R/helper_evaluation.r")
+	source("R/marginal_effect.R")
+	source("benchmarks/helper_evaluation.R")
 	source("R/tree_splitting.R")
 
-	obj = readRDS(file.path(instance, "objective.rds"))
+	obj = readRDS(file.path(instance, "obj.rds")
+)
     ps = getParamSet(obj)
     pl = getParamLengths(ps)
 
@@ -86,6 +87,9 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
     features = models[[1]]$features
 
 	mbo_optima = opdf[which.min(opdf$y), ]
+
+    # Compute sampling bias
+    mmd2 = compute_sampling_bias(res)
 
 	set.seed(123456)
 	testdata = generateRandomDesign(n = testdata.size, par.set = ps)
@@ -118,6 +122,7 @@ perform_tree_splitting_synthetic = function(data, job, instance, grid.size, test
     	models = models, 
     	reslist = reslist, 
     	eval = eval, 
+        mmd2 = mmd2, 
     	runtime = as.integer(end_t) - as.integer(start_t)
     	)
     )

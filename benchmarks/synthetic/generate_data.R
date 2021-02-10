@@ -17,19 +17,14 @@ reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "benchmarks/syntheti
 
 for (i in seq_len(length(tasks))) {
   
-  path = file.path("data/runs/synthetic/", tasks[i])
-
-  if (!dir.exists(path))
-    dir.create(file.path(path), recursive = TRUE)
-
   for (j in seq_len(length(dimensions))) {
 
-    subpath = file.path(path, paste0(dimensions[j], "D"))
+    subpath = file.path("data", "runs", "synthetic", paste0(tasks[i], dimensions[j], "D"), "0_objective")
 
     if (!dir.exists(subpath))
-      dir.create(file.path(subpath))
+      dir.create(file.path(subpath), recursive = TRUE)
 
-    if (!file.exists(file.path(subpath, "objective.rds"))) {
+    if (!file.exists(file.path(subpath, "obj.rds"))) {
       
       obj = makeSingleObjectiveFunction(name = paste0("StyblinskiTang", dimensions[j], "D"), fn = function(x) {
               1 / 2 * sum(x^4 - 16 * x^2 + 5 * x)
@@ -38,7 +33,7 @@ for (i in seq_len(length(tasks))) {
           global.opt.params = rep(-2.9035, dimensions[j])
       )
 
-      saveRDS(obj, file.path(subpath, "objective.rds"))
+      saveRDS(obj, file.path(subpath, "obj.rds"))
     }
 
     addProblem(
