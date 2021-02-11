@@ -1,6 +1,19 @@
+library("plot3D")
+library("ggplot2")
+library("GGally")
+library("gridExtra")
+library("dplyr")
 
 
+# create table for relative improvement on dataset level (HPO on DL)
 create_table_datasets = function(data.list, objective, target, depth){
+  # data.list: list with evaluation data for each dataset
+  # objective: character string with name of objective e.g. "SS_L2"
+  # target:    name of column of evaluation data to be aggregated e.g. "conf.rel"
+  # depth:     tree depth 
+  
+  # output:    table with results aggregated on dataset level 
+  
   df = lapply(1:length(data.list), function(i){
     
     data = data.list[[i]]
@@ -20,8 +33,14 @@ create_table_datasets = function(data.list, objective, target, depth){
   return(do.call("rbind", df))
 }
 
-
+# create table for relative improvement on hyperparameter level (HPO on DL)
 create_table_features = function(data.list, objective, target, depth){
+  # data.list: list with evaluation data for each dataset
+  # objective: character string with name of objective e.g. "SS_L2"
+  # target:    name of column of evaluation data to be aggregated e.g. "conf.rel"
+  # depth:     tree depth 
+  
+  # output:    table with results aggregated on hyperparameter level 
   
   df = lapply(1:length(data.list), function(i){
     
@@ -114,10 +133,7 @@ find_split_criteria = function(tree, optimum){
 }
 
 
-library("plot3D")
-library("ggplot2")
-library("GGally")
-library("gridExtra")
+
 
 plot_function = function(obj) {
   ps = getParamSet(obj)
