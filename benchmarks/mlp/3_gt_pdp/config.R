@@ -41,24 +41,25 @@ lapply(packages, library, character.only = TRUE)
 
 # --- 1. PROBLEM DESIGN ---
 
-TASK_LOCATION = "data/runs/mlp2/"
+TASK_LOCATION = "data/runs/mlp_new/"
 
-tasks = list.dirs(TASK_LOCATION, full.names = FALSE, recursive = FALSE)
+tasks = c("adult", "airlines", "albert", "Amazon_employee_access", "APSFailure", 
+	"Australian", "bank-marketing", "blood-transfusion-service-center",
+	"car", "christine", "cnae-9", "connect-4", "covertype", "credit-g", 
+	"dionis", "fabert", "Fashion-MNIST", "helena", "higgs",
+	"jannis", "jasmine", "jungle_chess_2pcs_raw_endgame_complete", "kc1", 
+	"KDDCup09_appetency", "kr-vs-kp", "mfeat-factors", "MiniBooNE", 
+	"nomao", "numerai28.6", "phoneme", "segment",
+	"shuttle", "sylvine", "vehicle", "volkert")
 
 pdes = data.table(tasks = tasks)
 
 
 # --- 2. ALGORITHM DESIGN ---
 
-# - A - mlrMBO tuning   
-
-# The objective function is just the evaluation of a configuration on the surrogate meta-model. 
-# The initial design is fixed, to reduce the variation in the runs. 
-
 compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.size) {
 
-	source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/pdp_helpers2.R")
-	source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/mlp_helper.r")
+	source("benchmarks/helper_evaluation.R")
 
   	surr_val = readRDS(file.path(instance, "0_objective", "surrogate.rds"))$result[[1]]$model_val_balanced_acc
   	lcbench = read.csv2(file.path(instance, "0_objective", "lcbench2000.csv"), sep = ",")
@@ -136,7 +137,7 @@ compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.siz
 	lambdas = c(0.5, 1, 2, 10)
 
 	optima = lapply(lambdas, function(lambda) {
-		path = "data/runs/mlp_new/"
+		path = strsplit(instance, "//")[[1]][2]
 		folder_mlp = strsplit(instance, "//")[[1]][2]
 		data = get_data(path, folder_mlp, lambda = lambda)
 		all_optima = get_optima(data)[[folder_mlp]]

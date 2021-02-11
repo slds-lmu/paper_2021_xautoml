@@ -203,7 +203,7 @@ compute_sampling_bias = function(mbo.result) {
         
         opt.path = as.data.frame(mbo.result$opt.path)
         dim = which(names(opt.path) == "y") - 1
-        ps = makeParamSet(makeNumericVectorParam(id = "x", len = dim, lower = - 5, upper = 5))      
+        ps = mbo.result$opt.path$par.set
         ids = getParamIds(ps, repeated = TRUE, with.nr = TRUE)
         df1 = as.data.frame(opt.path)[, ids]
         df2 = as.data.frame(generateRandomDesign(n = nrow(df1), ps))

@@ -38,12 +38,16 @@ lapply(packages, library, character.only = TRUE)
 
 # --- 1. PROBLEM DESIGN ---
 
-TASK_LOCATION = "data/runs/mlp/"
+TASK_LOCATION = "data/runs/mlp2/"
 
-tasks = list.dirs(TASK_LOCATION, full.names = FALSE)
-tasks = tasks[2:length(tasks)]
-
-
+tasks = c("adult", "airlines", "albert", "Amazon_employee_access", "APSFailure", 
+	"Australian", "bank-marketing", "blood-transfusion-service-center",
+	"car", "christine", "cnae-9", "connect-4", "covertype", "credit-g", 
+	"dionis", "fabert", "Fashion-MNIST", "helena", "higgs",
+	"jannis", "jasmine", "jungle_chess_2pcs_raw_endgame_complete", "kc1", 
+	"KDDCup09_appetency", "kr-vs-kp", "mfeat-factors", "MiniBooNE", 
+	"nomao", "numerai28.6", "phoneme", "segment",
+	"shuttle", "sylvine", "vehicle", "volkert")
 
 # --- 2. ALGORITHM DESIGN ---
 
@@ -69,12 +73,12 @@ randomsearch = function(data, job, instance
 	# Build two models: one for validation accuracy, on for test accuracy 
 	obj = c("final_val_balanced_accuracy", "final_test_balanced_accuracy")
 
-	
+	# The function `perform_random_search` does a simple random search and returns a tuned random forest on the LCBench data
 	opdf_val = perform_random_search(df = df, search_space_ids = search_space_ids, 
-		ps_surrogate = ps_surrogate, objective = obj[1], max_evals = 500, resampling = cv3)
+		ps_surrogate = ps_surrogate, objective = obj[1], max_evals = 10, resampling = cv3)
 	
 	opdf_test = perform_random_search(df = df, search_space_ids = search_space_ids, 
-		ps_surrogate = ps_surrogate, objective = obj[2], max_evals = 500, resampling = cv3)
+		ps_surrogate = ps_surrogate, objective = obj[2], max_evals = 10, resampling = cv3)
 
 
 	return(list(opdf_val_balanced_accuracy = opdf_val, opdf_test_balanced_accuracy = opdf_test))
