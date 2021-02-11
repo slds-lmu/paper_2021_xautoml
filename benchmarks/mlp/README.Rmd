@@ -32,7 +32,7 @@ The core part, which is the actual definition of the experiment is in the functi
 
 Jobs are submitted as follows. 
 
-```{r}
+```{r eval=FALSE}
 reg = loadRegistry("regs/LCBench_surogate_registry", writeable = TRUE)
 
 # Overview table over experiments to be run
@@ -40,17 +40,55 @@ tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem"))
 
 # Submit all experiments to your local system  
-submitJobs(tab)
+submitJobs(tab[1, ])
 
 # Alternatively, submit them to the linux cluster with respective resources
 # source("benchmarks/resources.R")
 # submitJobs(tab, resources = resources.serial.default)
 ```
 
+The following commands will summarize the experimental results in a compact way and store it in 
 
+```{r eval=FALSE}
+reg = loadRegistry("regs/LCBench_surogate_registry")
+
+# Check status of the experiments 
+getStatus()
+
+source("benchmarks/mlp/1_empirical_performance_model/reduce.R")
+reduce_results_surrogate(reg, savedir = "data/runs/mlp2")
+```
 
 
 ### Run MBO 
+
+For each problem, i.e. for each dataset, we run mlrMBO to perform Bayesian optimization. We optimize the objective function as approximated by the empirical performance model as computed before. 
+
+We perform 30 replications per experiment. 
+
+```{r}
+source("benchmarks/mlp/2_mbo_runs/generate_data.R")
+```
+
+The details of how the BO run is implemented can be seen in the function `mlrmbo(...)`.
+
+Again, jobs are submitted and reduced. 
+
+```{r eval=FALSE}
+reg = loadRegistry("regs/LCBench_surogate_registry", writeable = TRUE)
+
+# Overview table over experiments to be run
+tab = summarizeExperiments(
+  by = c("job.id", "algorithm", "problem"))
+
+# Submit all experiments to your local system  
+submitJobs(tab[1, ])
+
+# Alternatively, submit them to the linux cluster with respective resources
+# source("benchmarks/resources.R")
+# submitJobs(tab, resources = resources.serial.default)
+```
+
 
 
 

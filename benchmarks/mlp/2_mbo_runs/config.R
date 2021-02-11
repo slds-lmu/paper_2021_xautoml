@@ -12,7 +12,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 60L
     # registry name for storing files on drive 
-		registry_name = "results/mlp_mlrmbo_registry_temp" 
+		registry_name = "regs/mlp_mlmbo_registry_temp" 
 	},
 	"REAL" = {
 		# overwrite registry?
@@ -20,7 +20,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
     # registry name for storing files on drive     
-		registry_name = "results/mlp_mlrmbo_registry_fixed_initdes"
+		registry_name = "regs/mlp_mlmbo_registry"
 	}
 )
 
@@ -38,10 +38,16 @@ lapply(packages, library, character.only = TRUE)
 
 # --- 1. PROBLEM DESIGN ---
 
-TASK_LOCATION = "data/runs/mlp_new/"
+TASK_LOCATION = "data/runs/mlp2/"
 
-tasks = list.dirs(TASK_LOCATION, full.names = FALSE)
-tasks = tasks[2:length(tasks)]
+tasks = c("adult", "airlines", "albert", "Amazon_employee_access", "APSFailure", 
+	"Australian", "bank-marketing", "blood-transfusion-service-center",
+	"car", "christine", "cnae-9", "connect-4", "covertype", "credit-g", 
+	"dionis", "fabert", "Fashion-MNIST", "helena", "higgs",
+	"jannis", "jasmine", "jungle_chess_2pcs_raw_endgame_complete", "kc1", 
+	"KDDCup09_appetency", "kr-vs-kp", "mfeat-factors", "MiniBooNE", 
+	"nomao", "numerai28.6", "phoneme", "segment",
+	"shuttle", "sylvine", "vehicle", "volkert")
 
 pdes = data.table(tasks = tasks)
 
@@ -55,7 +61,7 @@ pdes = data.table(tasks = tasks)
 
 mlrmbo = function(data, job, instance, lambda) {
 
-
+	source("benchmarks/helper_evaluation.R")
 
 	surrogate_data = readRDS(file.path(instance, "surrogate.rds"))
 	surr_val = surrogate_data$result[[1]]$model_val_balanced_acc[[1]]
@@ -88,7 +94,7 @@ mlrmbo = function(data, job, instance, lambda) {
 	)
 
 	ctrl = makeMBOControl(store.model.at = 1:200)
-	ctrl = setMBOControlTermination(ctrl, max.evals = 200, time.budget = RUNTIME_MAX)
+	ctrl = setMBOControlTermination(ctrl, max.evals = 10, time.budget = RUNTIME_MAX)
 	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
 	set.seed(1234)
@@ -106,85 +112,21 @@ mlrmbo = function(data, job, instance, lambda) {
     models = models[c(dob.best, length(models))]
     res$final.opt.state = NULL
 
-    return(list(
-    	opt.path = opdf, 
-    	models = models, 
-    	runtime = as.integer(end_t) - as.integer(start_t)
-    	)
-    )
-}
-
-
-# - A - randomsearch
-
-# We want to compare explanations we get from an MBO run to a run that was evaluated on a random grid
-# This is for separating the sampling bias from the explanations. 
-
-randomsearch = function(data, job, instance
-    # algorithm-specific parameters
-    ) {
-
-	print(data)
-	print(instance)
-
-	surrogate_data = readRDS(file.path(instance, "0_objective/surrogate.rds"))
-	surr_val = surrogate_data$result[[1]]$model_val_balanced_acc[[1]]
-	surr_test = surrogate_data$result[[1]]$model_test_balanced_acc[[1]]
-
-	ps = makeParamSet(
-			# do early stopping instead for the bigger datasets
-		  	makeNumericParam("batch_size", lower = log(16, 2), upper = log(512, 2), trafo = function(x) round(2^x)), 
-		  	makeNumericParam("max_dropout", lower = 0, upper = 1), 
-		  	makeNumericParam("max_units", lower = log(64, 2), upper = log(1024, 2), trafo = function(x) round(2^x)), 
-		  	makeIntegerParam("num_layers", lower = 1, upper = 5),
-		  	makeNumericParam("learning_rate", lower = 0, upper = 0.01),
-		  	makeNumericParam("momentum", lower = 0.1, upper = 1),
-		  	makeNumericParam("weight_decay", lower = 0, upper = 0.1)
-		)
-
-	obj = makeSingleObjectiveFunction(name = "mlp.surr.tuning",
-	  fn = function(x) {
-	  	x = as.data.frame(x)
-		y = predict(surr_val, newdata = x)$data$response
-
-		attr(y, "extras") = list(test_performance = predict(surr_test, newdata = x)$data$response)
-		return(1 - y / 100)
-	  },
-	  par.set = ps,
-	  noisy = TRUE,
-	  has.simple.signature = FALSE,
-	  minimize = TRUE
-	)
-
-	ctrl = makeMBOControl(store.model.at = 1:201)
-	ctrl = setMBOControlTermination(ctrl, max.evals = 201, time.budget = RUNTIME_MAX)
-
-	set.seed(1234)
-	des = generateRandomDesign(n = 200, par.set = ps)
-
-    start_t = Sys.time()
-	res = mbo(obj, design = des, control = ctrl, show.info = TRUE)
-    end_t = Sys.time()
-
-    opdf = as.data.frame(res$opt.path)
-    opdf = opdf[seq_len(nrow(opdf) - 1), ]
-
-    models = res$models
-    
-    models = models[1]
-    res$final.opt.state = NULL
+    # Compute sampling bias
+    mmd2 = compute_sampling_bias(res)
 
     return(list(
     	opt.path = opdf, 
     	models = models, 
+    	objective = obj, 
+    	mmd2 = mmd2, 
     	runtime = as.integer(end_t) - as.integer(start_t)
     	)
     )
 }
 
 ALGORITHMS = list(
-    mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 2, 10))),
-    randomsearch = list(fun = randomsearch, ades = data.table())
+    mlrmbo = list(fun = mlrmbo, ades = data.table(lambda = c(0.5, 1, 5)))
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)

@@ -22,7 +22,7 @@ The core part, which is the actual definition of the experiment is in the functi
 
 2. Submit all your experiments 
 
-```{r}
+```{r eval=FALSE}
 reg = loadRegistry("regs/synthetic_tree_splitting", writeable = TRUE)
 
 # Overview table over experiments to be run
@@ -42,7 +42,7 @@ submitJobs(tab)
 Running the function `reduce_results_synthetic(...)` will store all results, splitted w.r.t. the problem and a specified directory. 
 
 
-```{r}
+```{r eval = FALSE}
 reg = loadRegistry("regs/synthetic_tree_splitting")
 
 # Check status of the experiments 

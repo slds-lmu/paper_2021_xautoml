@@ -1,14 +1,15 @@
 import os
 import pandas as pd 
 
-# https://github.com/automl/LCBench
+# git clone git@github.com:automl/LCBench.git
+# and install all requirements before
 from api import Benchmark
 
 # Download from https://ndownloader.figshare.com/files/21188598 and unzip
 bench_dir = "data_2k_lw.json"
 bench = Benchmark(bench_dir, cache=True)
 
-path = "data/runs/mlp/"
+path = "data/runs/mlp2/"
 
 dataset_names = bench.get_dataset_names()
 openml_task_ids = bench.get_openml_task_ids()
@@ -31,8 +32,9 @@ for task in dataset_names:
 		config['final_test_balanced_accuracy'] = bench.query(dataset_name=task, tag="final_val_accuracy", config_id=i)
 		data.append(config)
 	df = df.append(data, True)
-	target_dir = path + task + "/"
-	os.mkdir(target_dir)
+	target_dir = path + task + "/" + "0_objective" + "/"
+	os.makedirs(target_dir)
 	df.to_csv(target_dir + 'lcbench2000.csv')
+
 
 
