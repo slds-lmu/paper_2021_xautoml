@@ -12,7 +12,7 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 The setup of this experiment is slightly more complicated, since we first have to train an empirical performance model, before we can perform the MBO runs and perform the tree splitting. 
 
 
-### Training the Empirical Performance Model 
+### (1) Training the Empirical Performance Model 
 
 In order to train the empirical performance model, the LCBench data needs first to be downloaded from [here](https://ndownloader.figshare.com/files/21188598) and unzipped. 
 
@@ -40,7 +40,7 @@ tab = summarizeExperiments(
   by = c("job.id", "algorithm", "problem"))
 
 # Submit all experiments to your local system  
-submitJobs(tab[1, ])
+submitJobs(tab)
 
 # Alternatively, submit them to the linux cluster with respective resources
 # source("benchmarks/resources.R")
@@ -56,11 +56,11 @@ reg = loadRegistry("regs/LCBench_surogate_registry")
 getStatus()
 
 source("benchmarks/mlp/1_empirical_performance_model/reduce.R")
-reduce_results_surrogate(reg, savedir = "data/runs/mlp2")
+reduce_results_surrogate(reg, savedir = "data/runs/mlp_results")
 ```
 
 
-### Run MBO 
+### (2) Run MBO 
 
 For each problem, i.e. for each dataset, we run mlrMBO to perform Bayesian optimization. We optimize the objective function as approximated by the empirical performance model as computed before. 
 
@@ -75,7 +75,46 @@ The details of how the BO run is implemented can be seen in the function `mlrmbo
 Again, jobs are submitted and reduced. 
 
 ```{r eval=FALSE}
-reg = loadRegistry("regs/LCBench_surogate_registry", writeable = TRUE)
+reg = loadRegistry("regs/mlp_bo_registry", writeable = TRUE)
+
+# Overview table over experiments to be run
+tab = summarizeExperiments(
+  by = c("job.id", "algorithm", "problem"))
+
+# Submit all experiments to your local system  
+submitJobs(tab)
+
+# Alternatively, submit them to the linux cluster with respective resources
+# source("benchmarks/resources.R")
+# submitJobs(tab, resources = resources.serial.default)
+```
+
+We again store the compromised results. 
+
+```{r eval=FALSE}
+reg = loadRegistry("regs/mlp_bo_registry")
+
+# Check status of the experiments 
+getStatus()
+
+source("benchmarks/mlp/2_mbo_runs/reduce.R")
+reduce_results_mlrmbo(reg, savedir = "data/runs/mlp_results")
+```
+
+
+### (3) Compute the Ground-Truth PDPs 
+
+We compute the ground-truth PDP on the data in order to be able to compare our estimates against it. 
+
+We will use the same data for Monte Carlo Sampling as well as the same set of grid points for both estimates. 
+
+```{r}
+source("benchmarks/mlp/3_gt_pdp/generate_data.R")
+```
+
+
+```{r eval=FALSE}
+reg = loadRegistry("regs/mlp_ground_truth_pdp", writeable = TRUE)
 
 # Overview table over experiments to be run
 tab = summarizeExperiments(
@@ -89,7 +128,51 @@ submitJobs(tab[1, ])
 # submitJobs(tab, resources = resources.serial.default)
 ```
 
+We again store the compromised results. 
+
+```{r eval=FALSE}
+reg = loadRegistry("regs/mlp_ground_truth_pdp")
+
+# Check status of the experiments 
+getStatus()
+
+source("benchmarks/mlp/3_gt_pdp/reduce.R")
+reduce_results_gt_pdp(reg, savedir = "data/runs/mlp_results")
+```
 
 
+### (4) Compute Tree-Partitioning and perform Evaluation
 
-### Perform the Tree Splitting 
+Finally, we perform the tree-partitioning.
+
+```{r}
+source("benchmarks/mlp/4_tree_splitting/generate_data.R")
+```
+
+
+```{r eval=FALSE}
+reg = loadRegistry("regs/tree_splitting", writeable = TRUE)
+
+# Overview table over experiments to be run
+tab = summarizeExperiments(
+  by = c("job.id", "algorithm", "problem", "lambda", "objective"))
+
+# Submit all experiments to your local system  
+submitJobs(tab[1, ])
+
+# Alternatively, submit them to the linux cluster with respective resources
+# source("benchmarks/resources.R")
+# submitJobs(tab, resources = resources.serial.default)
+```
+
+We again store the compromised results. 
+
+```{r eval=FALSE}
+reg = loadRegistry("regs/tree_splitting")
+
+# Check status of the experiments 
+getStatus()
+
+source("benchmarks/mlp/4_tree_splitting/reduce.R")
+reduce_trees(reg, savedir = "data/runs/mlp_results")
+```

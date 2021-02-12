@@ -3,7 +3,7 @@
 source("R/helper.R")
 
 # - test or real setup for better testing - 
-SETUP = "TEST"
+SETUP = "REAL"
 
 switch(SETUP, 
 	"REAL" = {
@@ -12,7 +12,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
     # registry name for storing files on drive 
-		registry_name = "results/mlp_ground_truth_pdp" 
+		registry_name = "regs/mlp_ground_truth_pdp" 
 	},
 	"TEST" = {
 		# overwrite registry?
@@ -20,7 +20,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 60L
     # registry name for storing files on drive     
-		registry_name = "results/mlp_ground_truth_pdp_test"
+		registry_name = "regs/mlp_ground_truth_pdp_test"
 	}
 )
 
@@ -41,7 +41,7 @@ lapply(packages, library, character.only = TRUE)
 
 # --- 1. PROBLEM DESIGN ---
 
-TASK_LOCATION = "data/runs/mlp_new/"
+TASK_LOCATION = "data/runs/mlp2/"
 
 tasks = c("adult", "airlines", "albert", "Amazon_employee_access", "APSFailure", 
 	"Australian", "bank-marketing", "blood-transfusion-service-center",
@@ -60,6 +60,7 @@ pdes = data.table(tasks = tasks)
 compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.size) {
 
 	source("benchmarks/helper_evaluation.R")
+	source("R/marginal_effect.R")
 
   	surr_val = readRDS(file.path(instance, "0_objective", "surrogate.rds"))$result[[1]]$model_val_balanced_acc
   	lcbench = read.csv2(file.path(instance, "0_objective", "lcbench2000.csv"), sep = ",")
@@ -102,7 +103,6 @@ compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.siz
 	)
 
 
-
 	idx.min.lcbench = which.max(lcbench$final_val_balanced_accuracy)
 	x.min.lcbench = lcbench[idx.min.lcbench, names(lcbench) %in% getParamIds(ps)]
 	y.min.lcbench = 1 - as.numeric(as.character(lcbench[idx.min.lcbench, ]$final_val_balanced_accuracy)) / 100
@@ -122,7 +122,10 @@ compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.siz
 	features = getParamIds(ps)
 
 	# Compute some test we do our computations on 
-	testdata_path = file.path(instance, paste0("2_1_testdata/testdata_", testdata.size, ".rds"))
+	testdata_path = file.path(instance, "2_1_testdata")
+	dir.create(testdata_path, recursive = TRUE)
+
+	testdata_path = file.path(testdata_path, paste0("testdata_", testdata.size, ".rds"))
 
 	if (file.exists(testdata_path)) {
 	  testdata = readRDS(testdata_path)
@@ -134,19 +137,19 @@ compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.siz
 	# Because we want to evaluate the PDP in particular at the location of the optimum, 
 	# we need to read in the optimal values that were found during optimization
 
-	lambdas = c(0.5, 1, 2, 10)
-
-	optima = lapply(lambdas, function(lambda) {
-		path = strsplit(instance, "//")[[1]][2]
-		folder_mlp = strsplit(instance, "//")[[1]][2]
-		data = get_data(path, folder_mlp, lambda = lambda)
-		all_optima = get_optima(data)[[folder_mlp]]
-
+	optima = lapply(list.files(file.path(instance, "1_1_mlrmbo_runs"), full.names = TRUE), function (fname) {
+		
+		data = readRDS(fname)
+	    all_optima = lapply(data$result, function(res) {
+	      res$opt.path[which.min(res$opt.path$y), ]
+	    })
 		all_optima = do.call(rbind, all_optima)
 		all_optima$iter = seq_len(nrow(all_optima))
 
 		return(all_optima)
 	})
+
+	all.features = getParamIds(ps)
 
 	optima = do.call(rbind, optima)
 	optima$method = paste0("mlrmbo_lambda", optima$lambda)
@@ -159,7 +162,7 @@ compute_ground_truth_pdp = function(data, job, instance, grid.size, testdata.siz
 
 	start_t = Sys.time()
     gtdata = lapply(features, function(feature) {
-      marginal_effect_mlp(obj = obj, feature = feature, data = testdata, all.features = features, grid.size = grid.size, optima = optima, method = "pdp+ice")
+      marginal_effect_mlp(obj = obj, feature = feature, data = setDT(testdata), all.features = all.features, grid.size = grid.size)
     })
     end_t = Sys.time()
 

@@ -133,8 +133,13 @@ evaluate_results = function(reslist, optima, gtdata, testdata, models = NULL) {
       res.ice = res$res.ice
 
       # Get the ground-truth
-      gt.pdp = setDT(gtdata[[feature]][[1]])[.type == "pdp", ]
-      gt.ice = setDT(gtdata[[feature]][[1]])[.type == "ice", ]
+      if (!is.vector(gtdata[[feature]][[1]])) {
+        gt.pdp = setDT(gtdata[[feature]][[1]])[.type == "pdp", ]
+        gt.ice = setDT(gtdata[[feature]][[1]])[.type == "ice", ]
+      } else {
+        gt.pdp = setDT(gtdata[[feature]])[.type == "pdp", ]
+        gt.ice = setDT(gtdata[[feature]])[.type == "ice", ]        
+      }
 
       tree = res$trees[[1]]
 

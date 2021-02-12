@@ -179,18 +179,6 @@ perform_random_search = function(df, search_space_ids, ps_surrogate, objective, 
 }
 
 
-get_data <- function(path, folder_mlp, lambda){
-  data.list = lapply(folder_mlp, function(folder) {
-    data = readRDS(file.path(path, folder, "1_1_mlrmbo_runs/", paste0("mlrmbo_run_lambda_", lambda, "_30repls.rds")))
-    surrogate_model = readRDS(file.path(path, folder, "0_objective/surrogate.rds"))
-
-    data
-  })
-
-  names(data.list) = folder_mlp
-  
-  return(data.list)
-}
 
 get_models <- function(data){
 

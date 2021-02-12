@@ -2,23 +2,21 @@
 
 library(batchtools)
 
-source("benchmarks/mlp/2_mbo_runs/config.R")
-source("benchmarks/helper_experiments.R")
-source("benchmarks/helper_evaluation.R")
+source("benchmarks/mlp/4_tree_splitting/config.R")
 
 lapply(packages, require, character.only = TRUE)
 
 
 # --- 1. SETUP REGISTRY ---
 
-reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "benchmarks/mlp/2_mbo_runs/config.R")
+reg = safeSetupRegistry(registry_name, OVERWRITE, packages, "benchmarks/mlp/4_tree_splitting/config.R")
 
 # --- 2. ADD PROBLEMS, ALGORITHMS, EXPERIMENTS ---
 
 for (i in seq_len(length(tasks))) {
   addProblem(
     name = tasks[i], 
-    data = file.path("data", "runs", "mlp_results", tasks[i], "0_objective"),
+    data = file.path(TASK_LOCATION, tasks[i]), 
     reg = reg
   )
 }
@@ -30,6 +28,5 @@ for (i in 1:length(ALGORITHMS)) {
 addExperiments(
   reg = reg, 
   algo.designs = ades, 
-  repls = 30L)
-
+  repls = 1L)
 

@@ -12,15 +12,21 @@
 
 
 # calculate marginal effects for a specific feature
-marginal_effect = function(obj, feature, data = NULL, model, grid.size, all.features, method = "pdp+ice") {
+marginal_effect = function(obj, feature, data = NULL, grid.size, all.features, method = "pdp+ice") {
   # output: data.frame with marginal effects of regarded feature
     
+    ps = getParamSet(obj)
+
 	if (is.null(data)) {
-		data = generateRandomDesign(n = 100, par.set = )
+		data = generateRandomDesign(n = 100, par.set = ps)
 	}
 
     # create S3 model object and predict function for objective function to calculate effects    
-    mymodel = makeS3Obj("mymodel", fun = function(data) return(apply(setDT(data)[, ..all.features, drop = FALSE], 1, obj)))
+    mymodel = makeS3Obj("mymodel", fun = function(data) {
+        res = apply(setDT(data)[, ..all.features, drop = FALSE], 1, obj)
+        return(res)
+    })
+
     predict.mymodel = function(object, newdata) {
         object$fun(newdata)
     }
@@ -36,11 +42,11 @@ marginal_effect = function(obj, feature, data = NULL, model, grid.size, all.feat
 }
 
 # we probably need only one of them?
-marginal_effect_mlp = function(obj, feature, data, model, grid.size) {
+marginal_effect_mlp = function(obj, feature, data, all.features, grid.size) {
         
     mymodel = makeS3Obj("mymodel", fun = function(data) {
         res = lapply(seq_row(data), function(i) {
-            obj(as.list(data[i, model$features]))
+            obj(as.list(data[i, all.features]))
         })
         return(unlist(res))
     })
@@ -49,11 +55,11 @@ marginal_effect_mlp = function(obj, feature, data, model, grid.size) {
         object$fun(newdata)
     }
                         
-    predictor = Predictor$new(model = mymodel, data = data[, model$features], predict.function = predict.mymodel)
-    effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp")
+    predictor = Predictor$new(model = mymodel, data = data[, ..all.features], predict.function = predict.mymodel)
+    effects = FeatureEffect$new(predictor = predictor, feature = feature, grid.size = grid.size, method = "pdp+ice")
 
     res = effects$results
-    names(res) = c(feature, "mean")
+    names(res)[1:2] = c(feature, "mean")
                         
     return(res)
 }

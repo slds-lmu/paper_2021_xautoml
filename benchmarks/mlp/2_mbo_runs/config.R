@@ -12,7 +12,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 60L
     # registry name for storing files on drive 
-		registry_name = "regs/mlp_mlmbo_registry_temp" 
+		registry_name = "regs/mlp_bo_registry_temp" 
 	},
 	"REAL" = {
 		# overwrite registry?
@@ -20,7 +20,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
     # registry name for storing files on drive     
-		registry_name = "regs/mlp_mlmbo_registry"
+		registry_name = "regs/mlp_bo_registry"
 	}
 )
 
@@ -38,7 +38,7 @@ lapply(packages, library, character.only = TRUE)
 
 # --- 1. PROBLEM DESIGN ---
 
-TASK_LOCATION = "data/runs/mlp2/"
+TASK_LOCATION = "data/runs/mlp_results/"
 
 tasks = c("adult", "airlines", "albert", "Amazon_employee_access", "APSFailure", 
 	"Australian", "bank-marketing", "blood-transfusion-service-center",
@@ -94,7 +94,7 @@ mlrmbo = function(data, job, instance, lambda) {
 	)
 
 	ctrl = makeMBOControl(store.model.at = 1:200)
-	ctrl = setMBOControlTermination(ctrl, max.evals = 10, time.budget = RUNTIME_MAX)
+	ctrl = setMBOControlTermination(ctrl, max.evals = max.evals, time.budget = RUNTIME_MAX)
 	ctrl = setMBOControlInfill(ctrl, makeMBOInfillCritCB(cb.lambda = lambda))
 
 	set.seed(1234)

@@ -9,7 +9,7 @@ from api import Benchmark
 bench_dir = "data_2k_lw.json"
 bench = Benchmark(bench_dir, cache=True)
 
-path = "data/runs/mlp2/"
+path = "data/runs/mlp_results/"
 
 dataset_names = bench.get_dataset_names()
 openml_task_ids = bench.get_openml_task_ids()

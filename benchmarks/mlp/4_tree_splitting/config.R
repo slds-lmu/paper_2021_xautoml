@@ -12,7 +12,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 60L
     # registry name for storing files on drive 
-		registry_name = "results/tree_splitting_test" 
+		registry_name = "regs/tree_splitting_test" 
 	},
 	"REAL" = {
 		# overwrite registry?
@@ -20,7 +20,7 @@ switch(SETUP,
 		# termination criterion for each run
 		RUNTIME_MAX = 302400
     # registry name for storing files on drive     
-		registry_name = "results/tree_splitting_enhanced_evaluation"
+		registry_name = "regs/tree_splitting"
 	}
 )
 
@@ -41,7 +41,7 @@ lapply(packages, library, character.only = TRUE)
 
 # --- 1. PROBLEM DESIGN ---
 
-TASK_LOCATION = "data/runs/mlp_new/"
+TASK_LOCATION = "data/runs/mlp_results/"
 
 tasks = list.dirs(TASK_LOCATION, full.names = FALSE, recursive = FALSE)
 
@@ -52,11 +52,8 @@ pdes = data.table(tasks = tasks)
 
 perform_tree_splitting = function(data, job, instance, grid.size, testdata.size, n.splits, lambda, objective) {
 
-	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/mlp_helper.r")
-	# source("/dss/dssfs02/lwp-dss-0001/pr74ze/pr74ze-dss-0000/ru59sol2/repos/paper_2020_xautoml/R/helper_evaluation.r")
-
-	source("R/helper_evaluation.r")
-	source("R/mlp_helper.r")
+	source("benchmarks/helper_evaluation.R")
+	# source("R/mlp_helper.r")
 	source("R/tree_splitting.R")
 
 	# Get all ground-truth information
@@ -115,7 +112,7 @@ perform_tree_splitting = function(data, job, instance, grid.size, testdata.size,
 
 ALGORITHMS = list(
     perform_tree_splitting = list(fun = perform_tree_splitting, 
-    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 6, lambda = 2, objective = c("SS_sd", "SS_area", "SS_L1", "SS_L2")))
+    	ades = data.table(grid.size = 20, testdata.size = 1000, n.splits = 6, lambda = 0.5, objective = c("SS_sd", "SS_area", "SS_L1", "SS_L2")))
 )
 
 ades = lapply(ALGORITHMS, function(x) x$ades)
