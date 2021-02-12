@@ -13,5 +13,5 @@ workload manager.
 
 | Section | Type of Experiment | Link                                    |
 | ------- | ------------------ | --------------------------------------- |
-| 6.1     | Synthetic Function | [link](benchmarks/synthetic/README.md) |
-| 6.2     | MLP                | [link](benchmarks/mlp/README.md)       |
+| 6.1     | Synthetic Function | [link](synthetic/README.md) |
+| 6.2     | MLP                | [link](mlp/README.md)       |
