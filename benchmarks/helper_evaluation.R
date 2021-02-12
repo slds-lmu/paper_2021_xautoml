@@ -1,35 +1,5 @@
 library(kernlab)
 
-# do we need this one?
-get_eval_measures = function(effect, node, model, pdp.feature, optimum, grid.size, objective.groundtruth = NULL, method = "pdp_var_gp") {
-  
-  data = effect$predictor$data$X[node$subset.idx, ]
-  data = as.data.frame(data)
-  
-  pp = marginal_effect_sd_over_mean(model = model, feature = pdp.feature, data = data, grid.size = grid.size, method = method)
-  pp$lower = pp$mean - 2 * pp$sd
-  pp$upper = pp$mean + 2 * pp$sd
-  
-  pp.gt = marginal_effect(objective.groundtruth, pdp.feature, data, model, grid.size)
-  
-  conf.diff = sum(pp$upper - pp$lower)
-  gt.diff.abs = sum(abs(pp.gt$mean - pp$mean))
-  gt.diff.sd = sd(pp.gt$mean - pp$mean)
-  
-  # values around optimum
-  pp["dist.opt"] = abs(pp[,pdp.feature]-optimum)
-  pp.opt = pp[order(pp$dist.opt),][1,] # adjust number of grid points to evaluate?
-  
-  conf.diff.opt = sum(pp.opt$upper-pp.opt$lower)
-  gt.diff.abs.opt = sum(abs(pp.gt$mean[which(pp.opt[,pdp.feature] %in% pp.gt[,pdp.feature])]-pp.opt$mean))
-  gt.diff.sd.opt = sd(pp.gt$mean[which(pp.opt[,pdp.feature] %in% pp.gt[,pdp.feature])]-pp.opt$mean)
-  
-  return(list("conf.diff" = conf.diff, "gt.diff.abs" = gt.diff.abs, "gt.diff.sd" = gt.diff.sd,
-              "conf.diff.opt" = conf.diff.opt, "gt.diff.abs.opt" = gt.diff.abs.opt, "gt.diff.sd.opt" = gt.diff.sd.opt))
-}
-
-
-
 # mlp separate until surrogate data problem fixed
 get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, optimum, method = "pdp_var_sd", model = NULL) {
   
