@@ -1,6 +1,6 @@
 library(kernlab)
 
-# mlp separate until surrogate data problem fixed
+
 get_eval_measures_mlp = function(res.ice, gt.ice, testdata, idx, pdp.feature, optimum, method = "pdp_var_sd", model = NULL) {
   
   res.ice = res.ice[which(res.ice$.id %in% idx),]
