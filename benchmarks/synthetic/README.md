@@ -1,8 +1,3 @@
-
-``` r
-knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
-```
-
 # Experiments on a Synthetic Function (Section 6.1)
 
 To reproduce the experiments on a synthetic function, you simply run a
