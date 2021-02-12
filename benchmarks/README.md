@@ -1,8 +1,3 @@
-
-``` r
-knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
-```
-
 # Reproduce Experiments
 
 To perform the experiments on a cluster, we used the package
@@ -18,5 +13,5 @@ workload manager.
 
 | Section | Type of Experiment | Link                                    |
 | ------- | ------------------ | --------------------------------------- |
-| 6.1     | Synthetic Function | [link](benchmarks/synthetic/README.Rmd) |
-| 6.2     | MLP                | [link](benchmarks/mlp/README.Rmd)       |
+| 6.1     | Synthetic Function | [link](benchmarks/synthetic/README.md) |
+| 6.2     | MLP                | [link](benchmarks/mlp/README.md)       |
