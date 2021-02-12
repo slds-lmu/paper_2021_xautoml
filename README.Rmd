@@ -20,7 +20,7 @@ This repository is structured as follows:
     ├── data/                   # Location where all experimental data is stored
     │   ├── raw/                # Raw datasets for the DNN surrogate benchmark
     │   ├── runs/               # Individual runs 
-    ├── experiments/            # Code for experimental analysis (section 6)
+    ├── benchmarks/             # Code for experimental analysis (section 6)
     │   ├── synthetic           # Synthetic benchmark (section 6.1)
     │   ├── mlp                 # DNN surrogate benchmark (section 6.2)
     ├── renv/                   # renv configuration files to enable a reproducible setup 
